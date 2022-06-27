@@ -140,6 +140,7 @@ def evosuite_compile_and_run_test(class_name, byte_code_str, test_str, scaffold_
         # change to temp directory
         os.chdir(temp_dir)
 
+        # write bytecode, test, and scaffold files
         class_file_path = f"{class_name}.class"
         test_file_path = f"{class_name}_ESTest.java"
         scaffold_file_path = f"{class_name}_ESTest_scaffolding.java"
@@ -152,44 +153,69 @@ def evosuite_compile_and_run_test(class_name, byte_code_str, test_str, scaffold_
         with open(scaffold_file_path, 'w') as f:
             f.write(scaffold_str)
 
-                # compile test and scaffold files
+        # compile test and scaffold files
         CLASSPATH = 'CLASSPATH=.:' +  ':'.join(JAR_FILES)
         cmd = f'{CLASSPATH} {JAVAC_8} *.java'
-        print(cmd)
         os.system(cmd)
-
-
-        # print contents of directory
-        for file in os.listdir(os.getcwd()):
-            print(file)
 
         # run the test
-        # java org.junit.runner.JUnitCore tutorial.Stack_ESTest
-        cmd = f'{CLASSPATH} {JAVA_8} {class_name}_ESTest > test_output.txt'
+        cmd = f'{CLASSPATH} {JAVA_8} org.junit.runner.JUnitCore {class_name}_ESTest > output.txt 2>&1'
         os.system(cmd)
 
-        # read last line of output to get the output
-        with open('test_output.txt', 'r') as f:
-            output = f.readlines()[-2:]
+        # open test output and get last line
+        with open(os.path.join(temp_dir, 'output.txt'), 'r') as f:
+            output = f.readlines()[-2]
 
-        print(output)
-
+        # compute pass_rate
+        if "OK" in output:
+            pass_rate = 1.0
+        else:
+            runs, fails = output.split(',')
+            runs = float(runs.split(': ')[1])
+            fails = float(fails.split(': ')[1])
+            pass_rate = 1 - (fails / runs)
+        
         # change back to home directory
         os.chdir(home_dir)
 
+        return pass_rate
 
 
 if __name__=='__main__':
-    java_str = '''
+    gold_str = '''
     public class Add {
         public static int add(int a, int b) {
             return a + b;
         }
     }
     '''
-    class_name = get_class_name(java_str)
-    java_str = format_str(class_name, java_str)
-    class_str = compile_str(class_name, java_str)
-    # output = run_str(class_name, class_str)
-    test_str, scaffold_str = evosuite_gen_test(class_name, class_str)
-    pass_rate = evosuite_compile_and_run_test(class_name, class_str, test_str, scaffold_str)
+
+    test_str = '''
+    public class Add {
+        public static int add(int a, int b) {
+            return a + b + 1;
+        }
+    }
+    '''
+
+    # get class name
+    class_name = get_class_name(gold_str)
+
+    # format code
+    gold_str = format_str(class_name, gold_str)
+    pred_str = format_str(class_name, test_str)
+
+    # compile bytecode
+    gold_byte_code = compile_str(class_name, gold_str)
+    pred_byte_code = compile_str(class_name, pred_str)
+
+    # generate tests using evosuite and gold bytecode
+    test_str, scaffold_str = evosuite_gen_test(class_name, gold_byte_code)
+
+    # compile and run tests
+    gold_pass_rate = evosuite_compile_and_run_test(class_name, gold_byte_code, test_str, scaffold_str)
+    pred_pass_rate = evosuite_compile_and_run_test(class_name, pred_byte_code, test_str, scaffold_str)
+
+    # print pass rates
+    print(f'Gold pass rate: {gold_pass_rate}')
+    print(f'Pred pass rate: {pred_pass_rate}')
