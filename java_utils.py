@@ -15,20 +15,34 @@ JAR_FILES = [
 ]
 EVOSUITE_JAR = os.path.join(BASE_DIR, "jars/evosuite-1.0.6.jar")
 
+def preprocess_str(java_str):
+    '''
+    Preprocess java string
+    1. Remove all packages
+    '''
+    # remove all packages
+    java_str = re.sub(r'package\s+[^;]+;', '', java_str)
+
+    return java_str
+
+
 def format_str(class_name, java_str):
     '''
     Formats a java string using google-java-format
     '''
     with tempfile.TemporaryDirectory() as temp_dir:
-        java_file_path = os.path.join(temp_dir, class_name + '.java')
-        with open(java_file_path, 'w') as f:
+        java_file_path = os.path.join(temp_dir, class_name + ".java")
+        with open(java_file_path, "w") as f:
             f.write(java_str)
         
-        output_path = os.path.join(temp_dir, 'class_name.java.out')
-        os.system(f'{GOOGLE_JAVA_FORMAT} {java_file_path} > {output_path}')
+        output_path = os.path.join(temp_dir, "class_name.java.out")
+        exit_code = os.system(f"{GOOGLE_JAVA_FORMAT} {java_file_path} > {output_path} 2> /dev/null")
+
+        if exit_code != 0:
+            return None
 
         # read contents of class file to a string
-        with open(output_path, 'r') as f:
+        with open(output_path, "r") as f:
             formatted_str = f.read()
 
         return formatted_str
@@ -39,13 +53,13 @@ def get_class_name(java_str):
     Extracts the class name from a java string.
     '''
     # look for the first line that has class keyword
-    for line in java_str.split('\n'):
+    for line in java_str.split("\n"):
         # find all regions not in quotes
         spans = re.findall(r'[^"]+', line)
         for span in spans:
-            if 'class ' in span:
-                start_of_class_name = span.find('class ') + len('class ')
-                end_of_class_name = span[start_of_class_name:].find(' ')
+            if "class " in span:
+                start_of_class_name = span.find("class ") + len("class ")
+                end_of_class_name = span[start_of_class_name:].find(" ")
                 if end_of_class_name == -1:
                     end_of_class_name = len(span) - start_of_class_name
                 return span[start_of_class_name:start_of_class_name + end_of_class_name]
@@ -56,15 +70,18 @@ def compile_str(class_name, java_str):
     Compiles a java file (string) and returns the class name.
     '''
     with tempfile.TemporaryDirectory() as temp_dir:
-        java_file_path = os.path.join(temp_dir, class_name + '.java')
-        with open(java_file_path, 'w') as f:
+        java_file_path = os.path.join(temp_dir, class_name + ".java")
+        with open(java_file_path, "w") as f:
             f.write(java_str)
         
-        os.system(f'{JAVAC_8} -cp . {java_file_path}')
+        exit_code = os.system(f"{JAVAC_8} -cp . {java_file_path} > /dev/null 2>&1")
+
+        if exit_code != 0:
+            return None
 
         # read contents of class file to a string
-        class_file_path = os.path.join(temp_dir, class_name + '.class')
-        with open(class_file_path, 'rb') as f:
+        class_file_path = os.path.join(temp_dir, class_name + ".class")
+        with open(class_file_path, "rb") as f:
             class_str = f.read()
 
         return class_str
@@ -75,16 +92,16 @@ def run_str(class_name, byte_code_str):
     Runs a java class (string) and returns the output.
     '''
     with tempfile.TemporaryDirectory() as temp_dir:
-        class_file_path = os.path.join(temp_dir, class_name + '.class')
-        with open(class_file_path, 'wb') as f:
+        class_file_path = os.path.join(temp_dir, class_name + ".class")
+        with open(class_file_path, "wb") as f:
             f.write(byte_code_str)
 
-        output_path = os.path.join(temp_dir, 'output.txt')
+        output_path = os.path.join(temp_dir, "output.txt")
 
-        os.system(f'java -cp {temp_dir} {class_name} > {output_path}')
+        os.system(f"java -cp {temp_dir} {class_name} > {output_path}")
 
         # read contents of class file to a string
-        with open(output_path, 'r') as f:
+        with open(output_path, "r") as f:
             output = f.read()
 
         # clean up files
@@ -106,21 +123,25 @@ def evosuite_gen_test(class_name, byte_code_str):
         os.chdir(temp_dir)
 
         class_file_path = f"{class_name}.class"
-        with open(class_file_path, 'wb') as f:
+        with open(class_file_path, "wb") as f:
             f.write(byte_code_str)
 
 
-        EVOSUITE_GEN_TESTS = f"{JAVA_8} -jar {EVOSUITE_JAR} -class {class_name} -projectCP .  -Dsearch_budget=5 > /dev/null 2>&1"
-        os.system(EVOSUITE_GEN_TESTS)
+        EVOSUITE_GEN_TESTS = f"{JAVA_8} -jar {EVOSUITE_JAR} -class {class_name} -projectCP .  -Dsearch_budget=5"
+        exit_code = os.system(EVOSUITE_GEN_TESTS)
+
+        print(exit_code)
+        if exit_code != 0:
+            return None, None
 
         # read generated test files to a string
-        test_file_path = os.path.join('evosuite-tests', f"{class_name}_ESTest.java")
-        scaffold_file_path = os.path.join('evosuite-tests', f"{class_name}_ESTest_scaffolding.java")
+        test_file_path = os.path.join("evosuite-tests", f"{class_name}_ESTest.java")
+        scaffold_file_path = os.path.join("evosuite-tests", f"{class_name}_ESTest_scaffolding.java")
 
-        with open(test_file_path, 'r') as f:
+        with open(test_file_path, "r") as f:
             test_str = f.read()
 
-        with open(scaffold_file_path, 'r') as f:
+        with open(scaffold_file_path, "r") as f:
             scaffold_str = f.read()
 
         # change back to home directory
@@ -144,35 +165,35 @@ def evosuite_compile_and_run_test(class_name, byte_code_str, test_str, scaffold_
         class_file_path = f"{class_name}.class"
         test_file_path = f"{class_name}_ESTest.java"
         scaffold_file_path = f"{class_name}_ESTest_scaffolding.java"
-        with open(class_file_path, 'wb') as f:
+        with open(class_file_path, "wb") as f:
             f.write(byte_code_str)
 
-        with open(test_file_path, 'w') as f:
+        with open(test_file_path, "w") as f:
             f.write(test_str)
 
-        with open(scaffold_file_path, 'w') as f:
+        with open(scaffold_file_path, "w") as f:
             f.write(scaffold_str)
 
         # compile test and scaffold files
-        CLASSPATH = 'CLASSPATH=.:' +  ':'.join(JAR_FILES)
-        cmd = f'{CLASSPATH} {JAVAC_8} *.java'
+        CLASSPATH = "CLASSPATH=.:" +  ":".join(JAR_FILES)
+        cmd = f"{CLASSPATH} {JAVAC_8} *.java > /dev/null 2>&1"
         os.system(cmd)
 
         # run the test
-        cmd = f'{CLASSPATH} {JAVA_8} org.junit.runner.JUnitCore {class_name}_ESTest > output.txt 2>&1'
+        cmd = f"{CLASSPATH} {JAVA_8} org.junit.runner.JUnitCore {class_name}_ESTest > output.txt 2>&1"
         os.system(cmd)
 
         # open test output and get last line
-        with open(os.path.join(temp_dir, 'output.txt'), 'r') as f:
+        with open(os.path.join(temp_dir, "output.txt"), "r") as f:
             output = f.readlines()[-2]
 
         # compute pass_rate
         if "OK" in output:
             pass_rate = 1.0
         else:
-            runs, fails = output.split(',')
-            runs = float(runs.split(': ')[1])
-            fails = float(fails.split(': ')[1])
+            runs, fails = output.split(",")
+            runs = float(runs.split(": ")[1])
+            fails = float(fails.split(": ")[1])
             pass_rate = 1 - (fails / runs)
         
         # change back to home directory
@@ -181,8 +202,10 @@ def evosuite_compile_and_run_test(class_name, byte_code_str, test_str, scaffold_
         return pass_rate
 
 
-if __name__=='__main__':
+if __name__=="__main__":
     gold_str = '''
+    package com.example;
+
     public class Add {
         public static int add(int a, int b) {
             return a + b;
@@ -190,7 +213,9 @@ if __name__=='__main__':
     }
     '''
 
-    test_str = '''
+    pred_str = '''
+    package com.example.that.does.not.exist;
+
     public class Add {
         public static int add(int a, int b) {
             return a + b + 1;
@@ -201,9 +226,13 @@ if __name__=='__main__':
     # get class name
     class_name = get_class_name(gold_str)
 
+    # preprocess java string
+    gold_str = preprocess_str(gold_str)
+    pred_str = preprocess_str(pred_str)
+
     # format code
     gold_str = format_str(class_name, gold_str)
-    pred_str = format_str(class_name, test_str)
+    pred_str = format_str(class_name, pred_str)
 
     # compile bytecode
     gold_byte_code = compile_str(class_name, gold_str)
@@ -217,5 +246,5 @@ if __name__=='__main__':
     pred_pass_rate = evosuite_compile_and_run_test(class_name, pred_byte_code, test_str, scaffold_str)
 
     # print pass rates
-    print(f'Gold pass rate: {gold_pass_rate}')
-    print(f'Pred pass rate: {pred_pass_rate}')
+    print(f"Gold pass rate: {gold_pass_rate}")
+    print(f"Pred pass rate: {pred_pass_rate}")

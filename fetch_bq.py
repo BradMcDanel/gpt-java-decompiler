@@ -1,3 +1,7 @@
+"""
+Fetches the Java source code from BigQuery and writes it to .json files.
+"""
+
 import argparse
 import json
 import os
