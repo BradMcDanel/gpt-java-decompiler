@@ -13,10 +13,6 @@ EVOSUITE_JAR_FILES = [
     os.path.join(BASE_DIR, "jars/junit-4.12.jar"),
     os.path.join(BASE_DIR, "jars/hamcrest-core-1.3.jar"),
 ]
-ASM_JAR_FILES = [
-    os.path.join(BASE_DIR, "jars/asm-9.3.jar"),
-    os.path.join(BASE_DIR, "jars/asm-util-9.3.jar"),
-]
 EVOSUITE_JAR = os.path.join(BASE_DIR, "jars/evosuite-1.0.6.jar")
 
 def preprocess_str(java_str):
@@ -121,7 +117,6 @@ def disassemble_str(class_name, byte_code_str):
         with open(class_file_path, "wb") as f:
             f.write(byte_code_str)
 
-        classpath = temp_dir + ':' + ':'.join(ASM_JAR_FILES)
         cmd = f"python krakatau/disassemble.py -out {temp_dir} {class_file_path} > /dev/null 2>&1"
         exit_code = os.system(cmd)
 
@@ -153,7 +148,6 @@ def assemble_str(class_name, asm_str):
         with open(class_file_path, "w") as f:
             f.write(asm_str)
 
-        classpath = temp_dir + ':' + ':'.join(ASM_JAR_FILES)
         cmd = f"python krakatau/assemble.py -out {temp_dir} {class_file_path} > /dev/null 2>&1"
         exit_code = os.system(cmd)
 
@@ -333,6 +327,7 @@ if __name__=="__main__":
  
     asm = disassemble_str(class_name, gold_byte_code)
     asm_byte_code = assemble_str(class_name, asm)
+    print(asm)
 
     output = run_str(class_name, gold_byte_code)
     print(output)
