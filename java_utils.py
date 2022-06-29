@@ -8,10 +8,14 @@ JAVAC_8 = "/usr/lib/jvm/java-1.8.0-openjdk-amd64/bin/javac"
 JAVA_11 = "/usr/lib/jvm/java-11-openjdk-amd64/bin/java"
 JAVAC_11 = "/usr/lib/jvm/java-11-openjdk-amd64/bin/javac"
 GOOGLE_JAVA_FORMAT = f"{JAVA_11} -jar jars/google-java-format-1.15.0-all-deps.jar"
-JAR_FILES = [
+EVOSUITE_JAR_FILES = [
     os.path.join(BASE_DIR, "jars/evosuite-standalone-runtime-1.0.6.jar"),
     os.path.join(BASE_DIR, "jars/junit-4.12.jar"),
     os.path.join(BASE_DIR, "jars/hamcrest-core-1.3.jar"),
+]
+ASM_JAR_FILES = [
+    os.path.join(BASE_DIR, "jars/asm-9.3.jar"),
+    os.path.join(BASE_DIR, "jars/asm-util-9.3.jar"),
 ]
 EVOSUITE_JAR = os.path.join(BASE_DIR, "jars/evosuite-1.0.6.jar")
 
@@ -62,13 +66,31 @@ def get_class_name(java_str):
                 end_of_class_name = span[start_of_class_name:].find(" ")
                 if end_of_class_name == -1:
                     end_of_class_name = len(span) - start_of_class_name
-                return span[start_of_class_name:start_of_class_name + end_of_class_name]
+                class_name = span[start_of_class_name:start_of_class_name + end_of_class_name]
 
+                # check if class name is valid
+                if class_name.isalnum():
+                    return class_name
+
+def has_unresolved_imports(java_str):
+    '''
+    Checks if a java string has unresolved imports.
+    '''
+    # should return True if any line has an import that is not `java.*``
+    for line in java_str.split("\n"):
+        if line.strip().startswith("import "):
+            if "java." not in line:
+                return True
+    
+    return False
 
 def compile_str(class_name, java_str):
     '''
     Compiles a java file (string) and returns the class name.
     '''
+    if has_unresolved_imports(java_str):
+        return None
+
     with tempfile.TemporaryDirectory() as temp_dir:
         java_file_path = os.path.join(temp_dir, class_name + ".java")
         with open(java_file_path, "w") as f:
@@ -79,12 +101,78 @@ def compile_str(class_name, java_str):
         if exit_code != 0:
             return None
 
-        # read contents of class file to a string
         class_file_path = os.path.join(temp_dir, class_name + ".class")
+        if not os.path.exists(class_file_path):
+            return None
+
+        # read contents of class file to a string
         with open(class_file_path, "rb") as f:
             class_str = f.read()
 
         return class_str
+
+
+def disassemble_str(class_name, byte_code_str):
+    '''
+    Generates java asm given a byte_code_str.
+    '''
+    with tempfile.TemporaryDirectory() as temp_dir:
+        class_file_path = os.path.join(temp_dir, class_name + ".class")
+        with open(class_file_path, "wb") as f:
+            f.write(byte_code_str)
+
+        classpath = temp_dir + ':' + ':'.join(ASM_JAR_FILES)
+        cmd = f"python krakatau/disassemble.py -out {temp_dir} {class_file_path} > /dev/null 2>&1"
+        exit_code = os.system(cmd)
+
+        if exit_code != 0:
+            return None
+
+
+        # extract all files from the temp dir (recursively)
+        files = []
+        for root, dirs, filenames in os.walk(temp_dir):
+            for filename in filenames:
+                files.append(os.path.join(root, filename))
+        
+        # find the single file ending in .j
+        for file in files:
+            if file.endswith(".j"):
+                with open(file, "r") as f:
+                    asm_str = f.read()
+
+                return asm_str
+
+
+def assemble_str(class_name, asm_str):
+    '''
+    Generates byte code given an asm_str.
+    '''
+    with tempfile.TemporaryDirectory() as temp_dir:
+        class_file_path = os.path.join(temp_dir, class_name + ".class")
+        with open(class_file_path, "w") as f:
+            f.write(asm_str)
+
+        classpath = temp_dir + ':' + ':'.join(ASM_JAR_FILES)
+        cmd = f"python krakatau/assemble.py -out {temp_dir} {class_file_path} > /dev/null 2>&1"
+        exit_code = os.system(cmd)
+
+        if exit_code != 0:
+            return None
+
+        # extract all files from the temp dir (recursively)
+        files = []
+        for root, dirs, filenames in os.walk(temp_dir):
+            for filename in filenames:
+                files.append(os.path.join(root, filename))
+        
+        # find the single file ending in .class
+        for file in files:
+            if file.endswith(".class"):
+                with open(file, "rb") as f:
+                    byte_code_str = f.read()
+
+                return byte_code_str
 
 
 def run_str(class_name, byte_code_str):
@@ -98,7 +186,7 @@ def run_str(class_name, byte_code_str):
 
         output_path = os.path.join(temp_dir, "output.txt")
 
-        os.system(f"java -cp {temp_dir} {class_name} > {output_path}")
+        os.system(f"{JAVA_8} -cp {temp_dir} {class_name} > {output_path}")
 
         # read contents of class file to a string
         with open(output_path, "r") as f:
@@ -111,7 +199,7 @@ def run_str(class_name, byte_code_str):
         return output
     
 
-def evosuite_gen_test(class_name, byte_code_str):
+def evosuite_gen_test(class_name, byte_code_str, search_budget=5):
     '''
     Generates an evosuite test for a java class (string).
     '''
@@ -127,16 +215,21 @@ def evosuite_gen_test(class_name, byte_code_str):
             f.write(byte_code_str)
 
 
-        EVOSUITE_GEN_TESTS = f"{JAVA_8} -jar {EVOSUITE_JAR} -class {class_name} -projectCP .  -Dsearch_budget=5"
+        EVOSUITE_GEN_TESTS = f"{JAVA_8} -jar {EVOSUITE_JAR} -class {class_name} -projectCP .  -Dsearch_budget={search_budget} > /dev/null 2>&1"
         exit_code = os.system(EVOSUITE_GEN_TESTS)
 
-        print(exit_code)
         if exit_code != 0:
+            os.chdir(home_dir)
             return None, None
 
         # read generated test files to a string
         test_file_path = os.path.join("evosuite-tests", f"{class_name}_ESTest.java")
         scaffold_file_path = os.path.join("evosuite-tests", f"{class_name}_ESTest_scaffolding.java")
+
+        # if test "evosuite-tests" directory does not exist, and return
+        if not os.path.exists("evosuite-tests"):
+            os.chdir(home_dir)
+            return None, None
 
         with open(test_file_path, "r") as f:
             test_str = f.read()
@@ -175,7 +268,7 @@ def evosuite_compile_and_run_test(class_name, byte_code_str, test_str, scaffold_
             f.write(scaffold_str)
 
         # compile test and scaffold files
-        CLASSPATH = "CLASSPATH=.:" +  ":".join(JAR_FILES)
+        CLASSPATH = "CLASSPATH=.:" +  ":".join(EVOSUITE_JAR_FILES)
         cmd = f"{CLASSPATH} {JAVAC_8} *.java > /dev/null 2>&1"
         os.system(cmd)
 
@@ -207,6 +300,10 @@ if __name__=="__main__":
     package com.example;
 
     public class Add {
+        public static void main(String[] args) {
+            System.out.println(add(3, 1));
+        }
+
         public static int add(int a, int b) {
             return a + b;
         }
@@ -230,16 +327,25 @@ if __name__=="__main__":
     gold_str = preprocess_str(gold_str)
     pred_str = preprocess_str(pred_str)
 
+    # compile bytecode
+    gold_byte_code = compile_str(class_name, gold_str)
+    pred_byte_code = compile_str(class_name, pred_str)
+ 
+    asm = disassemble_str(class_name, gold_byte_code)
+    asm_byte_code = assemble_str(class_name, asm)
+
+    output = run_str(class_name, gold_byte_code)
+    print(output)
+    output = run_str(class_name, asm_byte_code)
+    print(output)
+    assert False
+
     # format code
     gold_str = format_str(class_name, gold_str)
     pred_str = format_str(class_name, pred_str)
 
-    # compile bytecode
-    gold_byte_code = compile_str(class_name, gold_str)
-    pred_byte_code = compile_str(class_name, pred_str)
-
     # generate tests using evosuite and gold bytecode
-    test_str, scaffold_str = evosuite_gen_test(class_name, gold_byte_code)
+    test_str, scaffold_str = evosuite_gen_test(class_name, gold_byte_code, search_budget=1)
 
     # compile and run tests
     gold_pass_rate = evosuite_compile_and_run_test(class_name, gold_byte_code, test_str, scaffold_str)

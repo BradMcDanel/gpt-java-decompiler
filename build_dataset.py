@@ -7,7 +7,67 @@ import argparse
 import json
 import os
 
+from joblib import Parallel, delayed
 import java_utils
+
+def process_sample(java_dict):
+    home_dir = os.getcwd()
+    try:
+        # get code
+        java_code = java_dict["content"]
+
+        # get class name
+        class_name = java_utils.get_class_name(java_code)
+
+        if class_name is None:
+            return None
+
+        # preprocess code
+        java_code = java_utils.preprocess_str(java_code)
+
+        if java_code is None:
+            return None
+        
+        # compile bytecode
+        byte_code = java_utils.compile_str(class_name, java_code)
+
+        if byte_code is None:
+            return None
+
+        # format code
+        java_code = java_utils.format_str(class_name, java_code)
+
+        if java_code is None:
+            return None
+
+        # disassemble code
+        jasm_code = java_utils.disassemble_str(class_name, byte_code)
+
+        if jasm_code is None:
+            return None
+
+        # generate tests using evosuite and gold bytecode
+        test_str, scaffold_str = java_utils.evosuite_gen_test(class_name, byte_code)
+
+        if test_str is None:
+            return None
+
+        # ensure that the gold bytecode passes the evosuite tests
+        pass_rate = java_utils.evosuite_compile_and_run_test(class_name, byte_code, test_str, scaffold_str)
+
+        if pass_rate < 1.0:
+            return None
+            
+        return {
+            "class_name": class_name,
+            "java_source": java_code,
+            "jasm_code": jasm_code,
+            "java_test": test_str,
+            "java_scaffold": scaffold_str,
+        }
+    except:
+        os.chdir(home_dir)
+        return None
 
 
 if __name__=="__main__":
@@ -32,67 +92,9 @@ if __name__=="__main__":
         with open(os.path.join(parser.input_dir, file), "r") as f:
             data = json.load(f) 
 
-        # attempt to compile java code and generate evosuite tests
-        # if compilation fails, skip this file
-        # (compilation errors are usually due to missing dependencies)
-        for java_dict in data:
-            if samples_processed == 1000:
-                with open(os.path.join(parser.output_dir, file), "w") as f:
-                    json.dump(output_data, f)
-                    break
+        results = Parallel(n_jobs=-1, verbose=10)(delayed(process_sample)(sample) for sample in data)
+        results = [result for result in results if result is not None]
+        print(len(results))
 
-
-            samples_processed += 1
-
-            # get code
-            java_code = java_dict["content"]
-
-            # get class name
-            class_name = java_utils.get_class_name(java_code)
-
-            if class_name is None:
-                continue
-
-            # preprocess code
-            java_code = java_utils.preprocess_str(java_code)
-            
-            # format code
-            java_code = java_utils.format_str(class_name, java_code)
-
-            if java_code is None:
-                continue
-
-            # compile bytecode
-            byte_code = java_utils.compile_str(class_name, java_code)
-
-            if byte_code is None:
-                continue
-
-            # generate tests using evosuite and gold bytecode
-            test_str, scaffold_str = java_utils.evosuite_gen_test(class_name, byte_code)
-
-            if test_str is None:
-                continue
-
-            # ensure that the gold bytecode passes the evosuite tests
-            pass_rate = java_utils.evosuite_compile_and_run_test(class_name, byte_code, test_str, scaffold_str)
-
-            if pass_rate < 1.0:
-                print(f"Skipping {file} because it failed evosuite tests")
-                break
-                
-            # if compilation passes, add to dataset
-            output_data.append({
-                "class_name": class_name,
-                "java_source": java_code,
-                "byte_code": byte_code,
-                "java_test": test_str,
-                "java_scaffold": scaffold_str,
-            })
-
-            print(f"Num passes: {len(output_data)} / {samples_processed}")
-
-
-
-
-
+        with open(os.path.join(parser.output_dir, file), "w") as f:
+            json.dump(results, f)
