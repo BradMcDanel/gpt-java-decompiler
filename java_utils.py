@@ -1,6 +1,7 @@
 import os
 import re
 import tempfile
+import math
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 JAVA_8 = "/usr/lib/jvm/java-1.8.0-openjdk-amd64/bin/java"
@@ -14,6 +15,11 @@ EVOSUITE_JAR_FILES = [
     os.path.join(BASE_DIR, "jars/hamcrest-core-1.3.jar"),
 ]
 EVOSUITE_JAR = os.path.join(BASE_DIR, "jars/evosuite-1.0.6.jar")
+
+# taken from: https://github.com/facebookresearch/CodeGen/blob/c62e719f7c8a16b4e7653188eff24282a11f4ca5/codegen_sources/test_generation/create_tests.py#L41
+MUTATION_SCORE_CUTOFF = 0.9
+MAX_JAVA_MEM = 4096
+CPUS_PER_TASK = 80
 
 def preprocess_str(java_str):
     '''
@@ -139,7 +145,7 @@ def disassemble_str(class_name, byte_code_str):
                 return asm_str
 
 
-def assemble_str(class_name, asm_str):
+def assemble_str(class_name, asm_str, verbose=False):
     '''
     Generates byte code given an asm_str.
     '''
@@ -148,7 +154,10 @@ def assemble_str(class_name, asm_str):
         with open(class_file_path, "w") as f:
             f.write(asm_str)
 
-        cmd = f"python krakatau/assemble.py -out {temp_dir} {class_file_path} > /dev/null 2>&1"
+        if verbose:
+            cmd = f"python krakatau/assemble.py -out {temp_dir} {class_file_path}"
+        else:
+            cmd = f"python krakatau/assemble.py -out {temp_dir} {class_file_path} > /dev/null 2>&1"
         exit_code = os.system(cmd)
 
         if exit_code != 0:
@@ -193,7 +202,7 @@ def run_str(class_name, byte_code_str):
         return output
     
 
-def evosuite_gen_test(class_name, byte_code_str, search_budget=5):
+def evosuite_gen_test(class_name, byte_code_str, search_budget=1):
     '''
     Generates an evosuite test for a java class (string).
     '''
@@ -209,9 +218,25 @@ def evosuite_gen_test(class_name, byte_code_str, search_budget=5):
             f.write(byte_code_str)
 
 
-        EVOSUITE_GEN_TESTS = f"{JAVA_8} -jar {EVOSUITE_JAR} -class {class_name} -projectCP .  -Dsearch_budget={search_budget} > /dev/null 2>&1"
-        exit_code = os.system(EVOSUITE_GEN_TESTS)
+        # adapted from: https://github.com/facebookresearch/CodeGen/blob/c62e719f7c8a16b4e7653188eff24282a11f4ca5/codegen_sources/test_generation/create_tests.py#L139
+        cmd = (
+            f"{JAVA_8} -jar {EVOSUITE_JAR} -class {class_name} -projectCP . "
+            f'-criterion "LINE:BRANCH:WEAKMUTATION:OUTPUT:METHOD:CBRANCH:STRONGMUTATION" '
+            f"-Dshow_progress=false "
+            f"-Dassertion_strategy=MUTATION "
+            f"-Dminimize=true "
+            f"-Dsearch_budget=20 "
+            f"-Ddouble_precision=0.0001 "
+            f"-Dmax_mutants_per_test 200 "
+            f'-Danalysis_criteria="LINE,BRANCH,EXCEPTION,WEAKMUTATION,OUTPUT,METHOD,METHODNOEXCEPTION,CBRANCH,STRONGMUTATION" '
+            f"-Doutput_variables=TARGET_CLASS,Random_Seed,criterion,Size,Length,BranchCoverage,Lines,Coverage,Covered_Lines,LineCoverage,MethodCoverage,Size,Length,Total_Goals,Covered_Goals,MutationScore,OutputCoverage "
+            f"-Dmax_int {int(math.sqrt(2 ** 31 - 1))} "
+            f"-mem={MAX_JAVA_MEM} "
+            f"-Dextra_timeout=180 "
+            "> /dev/null 2>&1"
+        )
 
+        exit_code = os.system(cmd)
         if exit_code != 0:
             os.chdir(home_dir)
             return None, None
@@ -237,7 +262,7 @@ def evosuite_gen_test(class_name, byte_code_str, search_budget=5):
         return test_str, scaffold_str
 
 
-def evosuite_compile_and_run_test(class_name, byte_code_str, test_str, scaffold_str):
+def evosuite_compile_and_run_test(class_name, byte_code_str, test_str, scaffold_str, verbose=False):
     '''
     Compiles and runs an evosuite test for a java class (string).
     '''
@@ -327,20 +352,16 @@ if __name__=="__main__":
  
     asm = disassemble_str(class_name, gold_byte_code)
     asm_byte_code = assemble_str(class_name, asm)
-    print(asm)
 
     output = run_str(class_name, gold_byte_code)
-    print(output)
     output = run_str(class_name, asm_byte_code)
-    print(output)
-    assert False
 
     # format code
     gold_str = format_str(class_name, gold_str)
     pred_str = format_str(class_name, pred_str)
 
     # generate tests using evosuite and gold bytecode
-    test_str, scaffold_str = evosuite_gen_test(class_name, gold_byte_code, search_budget=1)
+    test_str, scaffold_str = evosuite_gen_test(class_name, gold_byte_code)
 
     # compile and run tests
     gold_pass_rate = evosuite_compile_and_run_test(class_name, gold_byte_code, test_str, scaffold_str)
