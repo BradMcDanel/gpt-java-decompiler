@@ -6,8 +6,6 @@ from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from transformers import TrainingArguments, Trainer
 from transformers import TrainerCallback
-from transformers.utils import logging
-logging.set_verbosity_error()
 
 import prompts
 
@@ -91,7 +89,7 @@ if __name__=='__main__':
         logging_steps=5,
         evaluation_strategy="steps",
         eval_steps=3000,
-        disable_tqdm=True,
+        # disable_tqdm=True,
     )
 
     # train model
