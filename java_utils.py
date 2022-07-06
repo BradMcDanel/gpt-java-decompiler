@@ -1,6 +1,7 @@
 import os
 import re
 import tempfile
+from turtle import home
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 JAVA_8 = "/usr/lib/jvm/java-1.8.0-openjdk-amd64/bin/java"
@@ -14,6 +15,11 @@ EVOSUITE_JAR_FILES = [
     os.path.join(BASE_DIR, "jars/hamcrest-core-1.3.jar"),
 ]
 EVOSUITE_JAR = os.path.join(BASE_DIR, "jars/evosuite-1.0.6.jar")
+PYOCYON_JAR = os.path.join(BASE_DIR, "jars/procyon-decompiler-0.6.0.jar")
+CFR_JAR = os.path.join(BASE_DIR, "jars/cfr-0.152.jar")
+JADX_PATH = os.path.join(BASE_DIR, "jars/jadx/build/jadx/bin/jadx")
+FERNFLOWER_JAR = os.path.join(BASE_DIR, "jars/fernflower.jar")
+KRAKATAU_PATH = os.path.join(BASE_DIR, "krakatau/decompile.py")
 
 def preprocess_str(java_str):
     '''
@@ -107,6 +113,9 @@ def compile_str(class_name, java_str):
 
         return class_str
 
+def compile_jar(class_name):
+    cmd = f"jar cvf {class_name}.jar {class_name}.class"
+    os.system(cmd)
 
 def disassemble_str(class_name, byte_code_str):
     '''
@@ -289,6 +298,109 @@ def evosuite_compile_and_run_test(class_name, byte_code_str, test_str, scaffold_
         return pass_rate
 
 
+def procyon_decompiler(class_name, byte_code_str):
+    '''
+    Generates decompiled file by procyon.
+    '''
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        home_dir = os.getcwd()
+        # change to temp directory
+        os.chdir(temp_dir)
+
+        class_file_path = os.path.join(temp_dir, class_name + ".class")
+        with open(class_file_path, "wb") as f:
+            f.write(byte_code_str)
+
+        cmd = f"{JAVA_8} -jar {PYOCYON_JAR} {class_name} > output.txt 2>&1"
+        exit_code = os.system(cmd)
+
+        if exit_code != 0:
+            return None
+
+        with open(os.path.join(temp_dir, "output.txt"), "r") as f:
+            java_str = f.read()
+            os.chdir(home_dir)
+            return java_str
+
+def CFR_decompiler(class_name, byte_code_str):
+    '''
+    Generates decompiled file by CFR.
+    '''
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        home_dir = os.getcwd()
+        # change to temp directory
+        os.chdir(temp_dir)
+
+        class_file_path = os.path.join(temp_dir, class_name + ".class")
+        with open(class_file_path, "wb") as f:
+            f.write(byte_code_str)
+
+        cmd = f"{JAVA_8} -jar {CFR_JAR} {class_name} > output.txt 2>&1"
+        exit_code = os.system(cmd)
+
+        if exit_code != 0:
+            return None
+
+        with open(os.path.join(temp_dir, "output.txt"), "r") as f:
+            java_str = f.read()
+            os.chdir(home_dir)
+            return java_str
+
+def JADX_decompiler(class_name, byte_code_str):
+    '''
+    Generates decompiled file by CFR.
+    '''
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        home_dir = os.getcwd()
+        # change to temp directory
+        os.chdir(temp_dir)
+
+        class_file_path = os.path.join(temp_dir, class_name + ".class")
+        with open(class_file_path, "wb") as f:
+            f.write(byte_code_str)
+
+        cmd = f"{JADX_PATH} -d out {class_name}.class"
+        exit_code = os.system(cmd)
+
+        if exit_code != 0:
+            return None
+
+        with open(os.path.join(temp_dir, f"out/sources/defpackage/{class_name}.java"), "r") as f:
+            java_str = f.read()
+            os.chdir(home_dir)
+            return java_str
+
+def fernflower_decompiler(class_name, byte_code_str):
+    '''
+    Generates decompiled file by fernflower.
+    '''
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        home_dir = os.getcwd()
+        # change to temp directory
+        os.chdir(temp_dir)
+
+        class_file_path = os.path.join(temp_dir, class_name + ".class")
+        with open(class_file_path, "wb") as f:
+            f.write(byte_code_str)
+        compile_jar(class_name)
+        os.mkdir('out')
+        cmd = f"{JAVA_11} -jar {FERNFLOWER_JAR} {class_name}.jar out/"
+        exit_code = os.system(cmd)
+
+        if exit_code != 0:
+            return None
+        os.chdir("out/")
+        os.system(f"unzip {class_name}.jar")
+        with open(os.path.join(temp_dir, f"out/{class_name}.java"), "r") as f:
+            java_str = f.read()
+            os.chdir(home_dir)
+            return java_str
+
+
 if __name__=="__main__":
     gold_str = '''
     package com.example;
@@ -324,16 +436,33 @@ if __name__=="__main__":
     # compile bytecode
     gold_byte_code = compile_str(class_name, gold_str)
     pred_byte_code = compile_str(class_name, pred_str)
- 
+
     asm = disassemble_str(class_name, gold_byte_code)
     asm_byte_code = assemble_str(class_name, asm)
-    print(asm)
+    #print(asm)
+
+    decomp_procyon_java = procyon_decompiler(class_name, gold_byte_code)
+    procyon_byte_code = compile_str(class_name, decomp_procyon_java)
+
+    decomp_CFR_java = CFR_decompiler(class_name, gold_byte_code)
+    CFR_byte_code = compile_str(class_name, decomp_CFR_java)
+    #print(decomp_CFR_java)
+    
+    decomp_JADX_java = JADX_decompiler(class_name, gold_byte_code)
+    decomp_JADX_java = preprocess_str(decomp_CFR_java)
+    JADX_byte_code = compile_str(class_name, decomp_JADX_java)
+    #print('\n'+decomp_JADX_java)
+
+    decomp_fernflower_java = fernflower_decompiler(class_name, gold_byte_code)
+    fernflower_byte_code = compile_str(class_name, decomp_fernflower_java)
+    print(decomp_fernflower_java)
 
     output = run_str(class_name, gold_byte_code)
     print(output)
     output = run_str(class_name, asm_byte_code)
     print(output)
-    assert False
+    #output = run_str(class_name, JADX_byte_code)
+    #print(output)
 
     # format code
     gold_str = format_str(class_name, gold_str)
@@ -345,7 +474,16 @@ if __name__=="__main__":
     # compile and run tests
     gold_pass_rate = evosuite_compile_and_run_test(class_name, gold_byte_code, test_str, scaffold_str)
     pred_pass_rate = evosuite_compile_and_run_test(class_name, pred_byte_code, test_str, scaffold_str)
+    
+    procyon_pass_rate = evosuite_compile_and_run_test(class_name, procyon_byte_code, test_str, scaffold_str)
+    CFR_pass_rate = evosuite_compile_and_run_test(class_name, CFR_byte_code, test_str, scaffold_str)
+    JADX_pass_rate = evosuite_compile_and_run_test(class_name, JADX_byte_code, test_str, scaffold_str)
+    fernflower_pass_rate = evosuite_compile_and_run_test(class_name, fernflower_byte_code, test_str, scaffold_str)
 
     # print pass rates
     print(f"Gold pass rate: {gold_pass_rate}")
     print(f"Pred pass rate: {pred_pass_rate}")
+    print(f"Procyon pass rate: {procyon_pass_rate}")
+    print(f"CFR pass rate: {CFR_pass_rate}")
+    print(f"JADX pass rate: {JADX_pass_rate}")
+    print(f"fernflower pass rate: {fernflower_pass_rate}")
