@@ -74,27 +74,29 @@ if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--input-dir", type=str, required=True, help="Input directory")
     parser.add_argument("--output-dir", type=str, required=True, help="Output directory")
+    parser.add_argument("--start-idx", type=int, default=0, help="Start index")
     parser.add_argument("--num-files", type=int, default=None, help="Number of files to use")
-    parser = parser.parse_args()
+    args = parser.parse_args()
+
 
     # get list of files
-    files = os.listdir(parser.input_dir)
+    files = os.listdir(args.input_dir)
     # order files numerically by name
     files = sorted(files, key=lambda x: int(x.split('.')[0]))
-    if parser.num_files is not None:
-        files = files[:parser.num_files]
+    if args.num_files is not None:
+        files = files[args.start_idx:args.start_idx+args.num_files]
     
     output_data = []
     
     samples_processed = 0
     # create dataset
     for file in files:
-        with open(os.path.join(parser.input_dir, file), "r") as f:
+        with open(os.path.join(args.input_dir, file), "r") as f:
             data = json.load(f) 
 
-        results = Parallel(n_jobs=-1, verbose=10)(delayed(process_sample)(sample) for sample in data)
+        results = Parallel(n_jobs=-1, verbose=10, batch_size=1)(delayed(process_sample)(sample) for sample in data)
         results = [result for result in results if result is not None]
         print(len(results))
 
-        with open(os.path.join(parser.output_dir, file), "w") as f:
+        with open(os.path.join(args.output_dir, file), "w") as f:
             json.dump(results, f)
