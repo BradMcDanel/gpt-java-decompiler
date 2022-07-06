@@ -119,7 +119,7 @@ def compile_str(class_name, java_str):
         return class_str
 
 def compile_jar(class_name):
-    cmd = f"jar cvf {class_name}.jar {class_name}.class"
+    cmd = f"jar cvf {class_name}.jar {class_name}.class > /dev/null 2>&1"
     os.system(cmd)
 
 def disassemble_str(class_name, byte_code_str):
@@ -386,7 +386,7 @@ def JADX_decompiler(class_name, byte_code_str):
         with open(class_file_path, "wb") as f:
             f.write(byte_code_str)
 
-        cmd = f"{JADX_PATH} -d out {class_name}.class"
+        cmd = f"{JADX_PATH} -d out {class_name}.class > /dev/null 2>&1"
         exit_code = os.system(cmd)
 
         if exit_code != 0:
@@ -412,13 +412,38 @@ def fernflower_decompiler(class_name, byte_code_str):
             f.write(byte_code_str)
         compile_jar(class_name)
         os.mkdir('out')
-        cmd = f"{JAVA_11} -jar {FERNFLOWER_JAR} {class_name}.jar out/"
+        cmd = f"{JAVA_11} -jar {FERNFLOWER_JAR} {class_name}.jar out/ > /dev/null 2>&1"
         exit_code = os.system(cmd)
 
         if exit_code != 0:
             return None
         os.chdir("out/")
-        os.system(f"unzip {class_name}.jar")
+        os.system(f"unzip {class_name}.jar > /dev/null 2>&1")
+        with open(os.path.join(temp_dir, f"out/{class_name}.java"), "r") as f:
+            java_str = f.read()
+            os.chdir(home_dir)
+            return java_str
+
+def krakatau_decompiler(class_name, byte_code_str):
+    '''
+    Generates decompiled file by krakatau.
+    '''
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        home_dir = os.getcwd()
+        # change to temp directory
+        os.chdir(temp_dir)
+
+        class_file_path = os.path.join(temp_dir, class_name + ".class")
+        with open(class_file_path, "wb") as f:
+            f.write(byte_code_str)
+        compile_jar(class_name)
+        os.mkdir('out')
+        cmd = f"python2 {KRAKATAU_PATH} -out out -nauto -path /usr/lib/jvm/java-1.8.0-openjdk-amd64/jre/lib/rt.jar {class_name}.jar > /dev/null 2>&1"
+        exit_code = os.system(cmd)
+
+        if exit_code != 0:
+            return None
         with open(os.path.join(temp_dir, f"out/{class_name}.java"), "r") as f:
             java_str = f.read()
             os.chdir(home_dir)
@@ -479,14 +504,18 @@ if __name__=="__main__":
 
     decomp_fernflower_java = fernflower_decompiler(class_name, gold_byte_code)
     fernflower_byte_code = compile_str(class_name, decomp_fernflower_java)
-    print(decomp_fernflower_java)
+    #print(decomp_fernflower_java)
+
+    decomp_krakatau_java = krakatau_decompiler(class_name, gold_byte_code)
+    krakatau_byte_code = compile_str(class_name, decomp_krakatau_java)
+    #print(decomp_krakatau_java)
 
     output = run_str(class_name, gold_byte_code)
     output = run_str(class_name, asm_byte_code)
     print(output)
     #output = run_str(class_name, JADX_byte_code)
     #print(output)
-
+    
     # format code
     gold_str = format_str(class_name, gold_str)
     pred_str = format_str(class_name, pred_str)
@@ -502,6 +531,7 @@ if __name__=="__main__":
     CFR_pass_rate = evosuite_compile_and_run_test(class_name, CFR_byte_code, test_str, scaffold_str)
     JADX_pass_rate = evosuite_compile_and_run_test(class_name, JADX_byte_code, test_str, scaffold_str)
     fernflower_pass_rate = evosuite_compile_and_run_test(class_name, fernflower_byte_code, test_str, scaffold_str)
+    krakatau_pass_rate = evosuite_compile_and_run_test(class_name, krakatau_byte_code, test_str, scaffold_str)
 
     # print pass rates
     print(f"Gold pass rate: {gold_pass_rate}")
@@ -510,4 +540,5 @@ if __name__=="__main__":
     print(f"CFR pass rate: {CFR_pass_rate}")
     print(f"JADX pass rate: {JADX_pass_rate}")
     print(f"fernflower pass rate: {fernflower_pass_rate}")
+    print(f"krakatau pass rate: {krakatau_pass_rate}")
 
