@@ -340,6 +340,7 @@ def procyon_decompiler(class_name, byte_code_str):
         exit_code = os.system(cmd)
 
         if exit_code != 0:
+            os.chdir(home_dir)
             return None
 
         with open(os.path.join(temp_dir, "output.txt"), "r") as f:
@@ -365,6 +366,7 @@ def CFR_decompiler(class_name, byte_code_str):
         exit_code = os.system(cmd)
 
         if exit_code != 0:
+            os.chdir(home_dir)
             return None
 
         with open(os.path.join(temp_dir, "output.txt"), "r") as f:
@@ -390,6 +392,7 @@ def JADX_decompiler(class_name, byte_code_str):
         exit_code = os.system(cmd)
 
         if exit_code != 0:
+            os.chdir(home_dir)
             return None
 
         with open(os.path.join(temp_dir, f"out/sources/defpackage/{class_name}.java"), "r") as f:
@@ -416,6 +419,7 @@ def fernflower_decompiler(class_name, byte_code_str):
         exit_code = os.system(cmd)
 
         if exit_code != 0:
+            os.chdir(home_dir)
             return None
         os.chdir("out/")
         os.system(f"unzip {class_name}.jar > /dev/null 2>&1")
@@ -443,6 +447,7 @@ def krakatau_decompiler(class_name, byte_code_str):
         exit_code = os.system(cmd)
 
         if exit_code != 0:
+            os.chdir(home_dir)
             return None
         with open(os.path.join(temp_dir, f"out/{class_name}.java"), "r") as f:
             java_str = f.read()
