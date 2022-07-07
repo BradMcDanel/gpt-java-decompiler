@@ -107,7 +107,6 @@ def krakatau_decompiler_test(sample, byte_code_str):
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
-    #parser.add_argument("--model-name", type=str, required=True, help="Model name")
     parser.add_argument("--data-dir", type=str, required=True, help="Data directory")
     parser.add_argument("--output-path", type=str, required=True, help="Output path")
     args = parser.parse_args()
@@ -122,7 +121,7 @@ if __name__=='__main__':
     #processing results
     results = []
     for i in range(len(data)):
-        print(i)
+        print(str(i) + '/' + str(len(data)))
         sample_data = data[i]
         class_name = sample_data["class_name"]
         gold_byte_code = java_utils.assemble_str(class_name, sample_data["jasm_code"])
