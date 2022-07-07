@@ -16,6 +16,8 @@ def procyon_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_procyon_java,
             "pass_rate" : 0.0,
             "decomp_time" : total_time,
+            "Java_gen" : False,
+            "compile" : False,
         }
     
     procyon_byte_code = java_utils.compile_str(class_name, decomp_procyon_java)
@@ -24,6 +26,8 @@ def procyon_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_procyon_java,
             "pass_rate" : 0.0,
             "decomp_time" : total_time,
+            "Java_gen" : True,
+            "compile" : False,
         }
     
     procyon_pass_rate = java_utils.evosuite_compile_and_run_test(
@@ -37,6 +41,8 @@ def procyon_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_procyon_java,
             "pass_rate" : procyon_pass_rate,
             "decomp_time" : total_time,
+            "Java_gen" : True,
+            "compile" : True,
         }
 
 
@@ -50,6 +56,8 @@ def CFR_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_CFR_java,
             "pass_rate" : 0.0,
             "decomp_time" : total_time,
+            "Java_gen" : False,
+            "compile" : False,
         }
     
     CFR_byte_code = java_utils.compile_str(class_name, decomp_CFR_java)
@@ -58,6 +66,8 @@ def CFR_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_CFR_java,
             "pass_rate" : 0.0,
             "decomp_time" : total_time,
+            "Java_gen" : True,
+            "compile" : False,
         }
     
     CFR_pass_rate = java_utils.evosuite_compile_and_run_test(
@@ -71,6 +81,8 @@ def CFR_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_CFR_java,
             "pass_rate" : CFR_pass_rate,
             "decomp_time" : total_time,
+            "Java_gen" : True,
+            "compile" : True,
         }
 
 
@@ -84,6 +96,8 @@ def JADX_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_JADX_java,
             "pass_rate" : 0.0,
             "decomp_time" : total_time,
+            "Java_gen" : False,
+            "compile" : False,
         }
     
     decomp_JADX_java = java_utils.preprocess_str(decomp_JADX_java)
@@ -93,6 +107,8 @@ def JADX_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_JADX_java,
             "pass_rate" : 0.0,
             "decomp_time" : total_time,
+            "Java_gen" : True,
+            "compile" : False,
         }
     
     JADX_pass_rate = java_utils.evosuite_compile_and_run_test(
@@ -106,6 +122,8 @@ def JADX_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_JADX_java,
             "pass_rate" : JADX_pass_rate,
             "decomp_time" : total_time,
+            "Java_gen" : True,
+            "compile" : True,
         }
 
 
@@ -119,6 +137,8 @@ def fernflower_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_fernflower_java,
             "pass_rate" : 0.0,
             "decomp_time" : total_time,
+            "Java_gen" : False,
+            "compile" : False,
         }
     
     fernflower_byte_code = java_utils.compile_str(class_name, decomp_fernflower_java)
@@ -127,6 +147,8 @@ def fernflower_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_fernflower_java,
             "pass_rate" : 0.0,
             "decomp_time" : total_time,
+            "Java_gen" : True,
+            "compile" : False,
         }
     
     fernflower_pass_rate = java_utils.evosuite_compile_and_run_test(
@@ -140,6 +162,8 @@ def fernflower_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_fernflower_java,
             "pass_rate" : fernflower_pass_rate,
             "decomp_time" : total_time,
+            "Java_gen" : True,
+            "compile" : True,
         }
 
 
@@ -153,6 +177,8 @@ def krakatau_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_krakatau_java,
             "pass_rate" : 0.0,
             "decomp_time" : total_time,
+            "Java_gen" : False,
+            "compile" : False,
         }
 
 
@@ -162,6 +188,8 @@ def krakatau_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_krakatau_java,
             "pass_rate" : 0.0,
             "decomp_time" : total_time,
+            "Java_gen" : True,
+            "compile" : False,
         }
 
         
@@ -176,6 +204,8 @@ def krakatau_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_krakatau_java,
             "pass_rate" : krakatau_pass_rate,
             "decomp_time" : total_time,
+            "Java_gen" : True,
+            "compile" : True,
         }
 
 
