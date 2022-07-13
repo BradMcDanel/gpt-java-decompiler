@@ -16,7 +16,7 @@ def procyon_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_procyon_java,
             "pass_rate" : 0.0,
             "decomp_time" : total_time,
-            "Java_gen" : False,
+            "java_gen" : False,
             "compile" : False,
         }
     
@@ -26,7 +26,7 @@ def procyon_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_procyon_java,
             "pass_rate" : 0.0,
             "decomp_time" : total_time,
-            "Java_gen" : True,
+            "java_gen" : True,
             "compile" : False,
         }
     
@@ -41,7 +41,7 @@ def procyon_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_procyon_java,
             "pass_rate" : procyon_pass_rate,
             "decomp_time" : total_time,
-            "Java_gen" : True,
+            "java_gen" : True,
             "compile" : True,
         }
 
@@ -56,7 +56,7 @@ def CFR_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_CFR_java,
             "pass_rate" : 0.0,
             "decomp_time" : total_time,
-            "Java_gen" : False,
+            "java_gen" : False,
             "compile" : False,
         }
     
@@ -66,7 +66,7 @@ def CFR_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_CFR_java,
             "pass_rate" : 0.0,
             "decomp_time" : total_time,
-            "Java_gen" : True,
+            "java_gen" : True,
             "compile" : False,
         }
     
@@ -81,7 +81,7 @@ def CFR_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_CFR_java,
             "pass_rate" : CFR_pass_rate,
             "decomp_time" : total_time,
-            "Java_gen" : True,
+            "java_gen" : True,
             "compile" : True,
         }
 
@@ -89,14 +89,14 @@ def CFR_decompiler_test(sample, byte_code_str):
 def JADX_decompiler_test(sample, byte_code_str):
     class_name = sample["class_name"]
     start_t = time.time()
-    decomp_JADX_java = java_utils.CFR_decompiler(class_name, byte_code_str)
+    decomp_JADX_java = java_utils.JADX_decompiler(class_name, byte_code_str)
     total_time = time.time() - start_t
     if decomp_JADX_java is None:
         return {
             "java_source" : decomp_JADX_java,
             "pass_rate" : 0.0,
             "decomp_time" : total_time,
-            "Java_gen" : False,
+            "java_gen" : False,
             "compile" : False,
         }
     
@@ -107,7 +107,7 @@ def JADX_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_JADX_java,
             "pass_rate" : 0.0,
             "decomp_time" : total_time,
-            "Java_gen" : True,
+            "java_gen" : True,
             "compile" : False,
         }
     
@@ -122,7 +122,7 @@ def JADX_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_JADX_java,
             "pass_rate" : JADX_pass_rate,
             "decomp_time" : total_time,
-            "Java_gen" : True,
+            "java_gen" : True,
             "compile" : True,
         }
 
@@ -137,7 +137,7 @@ def fernflower_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_fernflower_java,
             "pass_rate" : 0.0,
             "decomp_time" : total_time,
-            "Java_gen" : False,
+            "java_gen" : False,
             "compile" : False,
         }
     
@@ -147,7 +147,7 @@ def fernflower_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_fernflower_java,
             "pass_rate" : 0.0,
             "decomp_time" : total_time,
-            "Java_gen" : True,
+            "java_gen" : True,
             "compile" : False,
         }
     
@@ -162,7 +162,7 @@ def fernflower_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_fernflower_java,
             "pass_rate" : fernflower_pass_rate,
             "decomp_time" : total_time,
-            "Java_gen" : True,
+            "java_gen" : True,
             "compile" : True,
         }
 
@@ -177,7 +177,7 @@ def krakatau_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_krakatau_java,
             "pass_rate" : 0.0,
             "decomp_time" : total_time,
-            "Java_gen" : False,
+            "java_gen" : False,
             "compile" : False,
         }
 
@@ -188,7 +188,7 @@ def krakatau_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_krakatau_java,
             "pass_rate" : 0.0,
             "decomp_time" : total_time,
-            "Java_gen" : True,
+            "java_gen" : True,
             "compile" : False,
         }
 
@@ -204,21 +204,20 @@ def krakatau_decompiler_test(sample, byte_code_str):
             "java_source" : decomp_krakatau_java,
             "pass_rate" : krakatau_pass_rate,
             "decomp_time" : total_time,
-            "Java_gen" : True,
+            "java_gen" : True,
             "compile" : True,
         }
 
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data-dir", type=str, required=True, help="Data directory")
+    parser.add_argument("--data-path", type=str, required=True, help="Data path")
     parser.add_argument("--output-path", type=str, required=True, help="Output path")
     args = parser.parse_args()
 
     #load data
-    test_path = os.path.join(args.data_dir, "test_small.json")
     data = []
-    with open(test_path, 'r') as f:
+    with open(args.data_path, 'r') as f:
         for line in f:
             data.append(json.loads(line))
 
@@ -228,7 +227,8 @@ if __name__=='__main__':
         print(str(i) + '/' + str(len(data)))
         sample_data = data[i]
         class_name = sample_data["class_name"]
-        gold_byte_code = java_utils.assemble_str(class_name, sample_data["jasm_code"])
+        gold_byte_code = java_utils.compile_str(class_name, sample_data["java_source"])
+
         if gold_byte_code is None:
             pass
         else:
