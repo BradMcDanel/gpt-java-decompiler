@@ -118,6 +118,6 @@ if __name__=='__main__':
             "pred_java_source": output,
         })
 
-    with open(args.output_path, 'w') as f:
-        for result in results:
-            f.write(json.dumps(result) + "\n")
+        with open(args.output_path, 'a') as f:
+            for result in results:
+                f.write(json.dumps(result) + "\n")
