@@ -9,150 +9,6 @@ JAVA_LANG = Language('CodeBLEU/parser/my-languages.so', 'java')
 java_parser = Parser()
 java_parser.set_language(JAVA_LANG)
 
-TEST_SOURCE = '''import java.math.BigInteger;
-                                 
-public class Testplan {
-  private BigInteger id;   
-                                 
-  private String name;
-
-  public Testplan() {}
-                                 
-  /**
-   * @param id                                                     
-   * @param name     
-   */
-  public Testplan(BigInteger id, String name) {
-    this.id = id;
-    this.name = name;
-  }
-
-  /**
-   * @return the id
-   */
-  public BigInteger getId() {
-    return id;
-  }
-
-  /**
-   * @param id the id to set
-   */
-  public void setId(BigInteger id) {
-    this.id = id;
-  }
-
-  /**
-   * @return the name
-   */
-  public String getName() {
-    return name;
-  }
-
-  /**
-   * @param name the name to set
-   */
-  public void setName(String name) {
-    this.name = name;
-  }
-}
-'''
-
-TEST_JASM = '''.version 52 0                                                                                                                          
-.class public super Testplan                                                                                                           
-.super java/lang/Object                                                                                                                
-.field private id Ljava/math/BigInteger;                                                                                               
-.field private name Ljava/lang/String;                                                                                                 
-                                                                   
-.method public <init> : ()V 
-    .code stack 1 locals 1       
-L0:     aload_0                                                    
-L1:     invokespecial Method java/lang/Object <init> ()V 
-L4:     return               
-L5:                                                                
-        .linenumbertable 
-            L0 11 
-            L4 13                                                  
-        .end linenumbertable 
-    .end code        
-.end method            
-
-.method public <init> : (Ljava/math/BigInteger;Ljava/lang/String;)V  
-    .code stack 2 locals 3                                         
-L0:     aload_0            
-L1:     invokespecial Method java/lang/Object <init> ()V 
-L4:     aload_0   
-L5:     aload_1                                                    
-L6:     putfield Field Testplan id Ljava/math/BigInteger; 
-L9:     aload_0 
-L10:    aload_2             
-L11:    putfield Field Testplan name Ljava/lang/String; 
-L14:    return    
-L15:                         
-        .linenumbertable 
-            L0 19 
-            L4 20 
-            L9 21 
-            L14 22 
-        .end linenumbertable 
-    .end code 
-.end method 
-
-.method public getId : ()Ljava/math/BigInteger; 
-    .code stack 1 locals 1 
-L0:     aload_0              
-L1:     getfield Field Testplan id Ljava/math/BigInteger; 
-L4:     areturn 
-L5:     
-        .linenumbertable                                           
-            L0 28          
-        .end linenumbertable 
-    .end code   
-.end method                                                        
-                                 
-.method public setId : (Ljava/math/BigInteger;)V 
-    .code stack 2 locals 2 
-L0:     aload_0   
-L1:     aload_1   
-L2:     putfield Field Testplan id Ljava/math/BigInteger; 
-L5:     return 
-L6:         
-        .linenumbertable    
-            L0 35 
-            L5 36 
-        .end linenumbertable 
-    .end code 
-.end method 
-
-.method public getName : ()Ljava/lang/String; 
-    .code stack 1 locals 1 
-L0:     aload_0 
-L1:     getfield Field Testplan name Ljava/lang/String; 
-L4:     areturn 
-L5:     
-        .linenumbertable 
-            L0 42 
-        .end linenumbertable 
-    .end code 
-.end method 
-
-.method public setName : (Ljava/lang/String;)V 
-    .code stack 2 locals 2 
-L0:     aload_0 
-L1:     aload_1 
-L2:     putfield Field Testplan name Ljava/lang/String; 
-L5:     return 
-L6:     
-        .linenumbertable 
-            L0 49 
-            L5 50 
-        .end linenumbertable 
-    .end code 
-.end method 
-.sourcefile 'Testplan.java' 
-.end class 
-'''
-
-
 def starpattern_multiline_matcher(java):
     # look for /* comment...\n.. */
     star_comment = re.compile("/\*[\s\S]*?\*/")
@@ -189,6 +45,7 @@ def doubleslash_multiline_matcher(java):
 
     return comment_idxs
 
+
 def keyword_matcher(java, comment_idxs):
     keywords = ["class", "import"]
     keyword_idxs = []
@@ -219,6 +76,7 @@ def remove_starting_comments(java, start_idx, comment_idxs):
 
     return java
 
+
 def trim_license_str(java):
     """
     Removes top-level LICENSE from source code.
@@ -231,6 +89,7 @@ def trim_license_str(java):
     java = remove_starting_comments(java, start_idx, comment_idxs)
 
     return java
+
 
 def remove_author_comments(java):
     """
@@ -287,37 +146,6 @@ def reject_sample(java):
         return True
 
     return False
-
-
-def collect_nodes(cursor):
-    if not cursor.goto_first_child():
-        return [cursor.node]
-    else:
-        nodes = [collect_nodes(cursor)]
-        while cursor.goto_next_sibling():
-            nodes.append(collect_nodes(cursor))
-        
-        cursor.goto_parent()
-        return nodes
-
-
-def java_code_from_nodes(nodes, depth=0):
-    output = []
-    for node in nodes:
-        if type(node) == list:
-            output.extend(java_code_from_nodes(node, depth=depth+1))
-        else:
-            if node.type in ["block_comment"]:
-                output.append("\n\n")
-
-            start_idx = node.start_byte
-            end_idx = node.end_byte
-            output.append(java[start_idx:end_idx])
-
-    if depth == 0:
-        output = " ".join(output)
-
-    return output
 
 
 def reject_field_order(java):
@@ -444,7 +272,6 @@ def match_source_asm(sample):
     constructor_num = 0
     for method, method_name in zip(methods, method_names):
         jasm_method = match_method_asm(jasm, method, class_name, method_name, constructor_num)
-        print(jasm_method)
 
         if method_name == class_name:
             constructor_num += 1
@@ -463,17 +290,20 @@ def match_method_asm(jasm, method, class_name, method_name, constructor_num=0):
     # split jasm into header and body
     jasm_header = jasm.split("\n\n")[0] + "\n"
     jasm_body = "\n".join(jasm.split("\n")[1:])
+    jasm_footer = "\n".join(jasm.split("\n")[-3:]).strip()
     
     if method_name == class_name:
         method_name = "<init>"
 
     # find method in jasm
     if method_name == "<init>":
-        method_start = 0
         constructor_idx = 0
         while constructor_idx < constructor_num:
             method_start = jasm_body.find(method_name)
-            jasm_body = jasm_body[method_start + len(method_name):]
+            jasm_body = jasm_body[method_start:]
+            # advance to next empty newline
+            jasm_body = "\n\n".join(jasm_body.split("\n\n")[1:])
+            jasm_body = "\n" + jasm_body
 
             if method_start == -1:
                 return None
@@ -481,6 +311,8 @@ def match_method_asm(jasm, method, class_name, method_name, constructor_num=0):
             constructor_idx += 1
 
     method_start = jasm_body.find(method_name)
+
+
 
     if method_start == -1:
         return None
@@ -495,7 +327,7 @@ def match_method_asm(jasm, method, class_name, method_name, constructor_num=0):
     method_body = jasm_body[method_start:method_end]
 
     # add header to method body
-    jasm_method = jasm_header + "\n" + method_body
+    jasm_method = jasm_header + "\n" + method_body + "\n" + jasm_footer
 
     return jasm_method
 
@@ -516,12 +348,11 @@ if __name__=='__main__':
     for filename in os.listdir(args.input_dir):
         with open(os.path.join(args.input_dir, filename), 'r') as f:
             all_data.extend(json.load(f))
-            break
 
     # extract methods from samples
     samples = []
     methods = []
-    all_data = [{"java_source": TEST_SOURCE, "jasm_code": TEST_JASM, "class_name": "Testplan"}]
+    # all_data = [{"java_source": TEST_SOURCE, "jasm_code": TEST_JASM, "class_name": "Testplan"}]
     for data in all_data:
         result_methods = []
         result = match_source_asm(data)
@@ -534,7 +365,6 @@ if __name__=='__main__':
         
         samples.append(data)
         methods.append(result_methods)
-    assert False
 
     # shuffle data
     random.seed(args.seed)
