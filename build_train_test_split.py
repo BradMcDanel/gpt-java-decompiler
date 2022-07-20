@@ -352,8 +352,7 @@ if __name__=='__main__':
     # extract methods from samples
     samples = []
     methods = []
-    # all_data = [{"java_source": TEST_SOURCE, "jasm_code": TEST_JASM, "class_name": "Testplan"}]
-    for data in all_data:
+    for i, data in enumerate(all_data):
         result_methods = []
         result = match_source_asm(data)
         if result is None:
@@ -382,6 +381,17 @@ if __name__=='__main__':
     train_methods = methods[:int(len(methods) * args.train_percentage)]
     test_samples = samples[int(len(samples) * args.train_percentage):]
     test_methods = methods[int(len(methods) * args.train_percentage):]
+
+    # add "id" field to samples and methods
+    for i, sample in enumerate(train_samples):
+        sample["id"] = i
+        for method in train_methods[i]:
+            method["id"] = i
+
+    for i, sample in enumerate(test_samples):
+        sample["id"] = i
+        for method in test_methods[i]:
+            method["id"] = i
 
     # flatten data
     train_methods = [item for sublist in train_methods for item in sublist]

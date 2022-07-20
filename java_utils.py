@@ -102,23 +102,22 @@ def compile_str(class_name, java_str):
         java_file_path = os.path.join(temp_dir, class_name + ".java")
         with open(java_file_path, "w") as f:
             f.write(java_str)
-        os.system(f"cp {java_file_path} ~/test-class/{class_name }.java")
+        
         exit_code = os.system(f"{JAVAC_8} -cp . {java_file_path} > /dev/null 2>&1")
 
         if exit_code != 0:
             return None
 
         class_file_path = os.path.join(temp_dir, class_name + ".class")
-        
         if not os.path.exists(class_file_path):
             return None
 
         # read contents of class file to a string
-        os.system(f"cp {class_file_path} ~/test-class/{class_name }.class")
         with open(class_file_path, "rb") as f:
             class_str = f.read()
 
         return class_str
+
 
 def compile_jar(class_name):
     cmd = f"jar cvf {class_name}.jar {class_name}.class > /dev/null 2>&1"

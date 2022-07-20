@@ -1,17 +1,20 @@
 def java_to_jasm_train(java_source, jasm_code):
-    return "<JAVA>\n" + java_source + "</JAVA>\n<JASM>\n" + jasm_code + "</JASM><|endoftext|>"
+    return "<|java|>" + java_source + "<|jasm|>" + jasm_code + "<|endoftext|>"
 
 
 def jasm_to_java_train(java_source, jasm_code):
-    return "<JASM>\n" + jasm_code + "</JASM>\n<JAVA>\n" + java_source + "</JAVA><|endoftext|>"
+    return "<|jasm|>" + jasm_code + "<|java|>" + java_source + "<|endoftext|>"
 
 
 def java_to_jasm_test(java_source):
-    return "<JAVA>\n" + java_source + "</JAVA>\n<JASM>\n"
+    return "<|java|>" + java_source + "<|jasm|>"
 
 
 def jasm_to_java_test(jasm_code):
-    return "<JASM>\n" + jasm_code + "</JASM>\n<JAVA>\n"
+    return "<|jasm|>" + jasm_code + "<|java|>"
+
+
+
 
 
 def get_train_prompt(target, java_source, jasm_code):

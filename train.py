@@ -41,10 +41,10 @@ if __name__=='__main__':
     args = parser.parse_args()
 
     # load dataset
-    train_path = os.path.join(args.data_dir, "train.json")
-    test_path = os.path.join(args.data_dir, "test.json")
+    train_path = os.path.join(args.data_dir, "train_methods.json")
+    test_path = os.path.join(args.data_dir, "test_methods.json")
     dataset = load_dataset("json", data_files={"train": train_path, "test": test_path})
-    dataset = dataset.remove_columns(["class_name", "java_test", "java_scaffold"])
+    # dataset = dataset.remove_columns(["class_name", "java_test", "java_scaffold"])
 
     # load model
     model = AutoModelForCausalLM.from_pretrained(args.model_name)
