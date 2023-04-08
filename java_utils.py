@@ -95,8 +95,8 @@ def compile_str(class_name, java_str):
     '''
     Compiles a java file (string) and returns the class name.
     '''
-    if has_unresolved_imports(java_str):
-        return None
+    # if has_unresolved_imports(java_str):
+    #     return None
 
     with tempfile.TemporaryDirectory() as temp_dir:
         java_file_path = os.path.join(temp_dir, class_name + ".java")
@@ -118,6 +118,24 @@ def compile_str(class_name, java_str):
 
         return class_str
 
+def get_java_compile_error(class_name, java_str):
+    '''
+    Compiles a java file (string) and returns the class name.
+    '''
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        java_file_path = os.path.join(temp_dir, class_name + ".java")
+        with open(java_file_path, "w") as f:
+            f.write(java_str)
+        
+        output_path = os.path.join(temp_dir, "class_name.java.out")
+        exit_code = os.system(f"{JAVAC_8} -cp . {java_file_path} > {output_path} 2>&1")
+
+        java_output = ""
+        with open(output_path, "r") as f:
+            java_output = f.read()
+
+        return java_output
 
 def compile_jar(class_name):
     cmd = f"jar cvf {class_name}.jar {class_name}.class > /dev/null 2>&1"

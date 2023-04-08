@@ -1,5 +1,6 @@
 import argparse
 import json
+import re
 import difflib
 
 from tree_sitter import Language, Parser
@@ -108,10 +109,6 @@ def extract_java_header(java):
                 static_fields.append(part)
             else:
                 header += part + "\n"
-                # if curr_node.type in ["{", "}"]:
-                #     header += part
-                # else:
-                #     header += part + "\n"
 
         if not cursor.goto_next_sibling():
             break
@@ -147,7 +144,7 @@ def extract_java_methods(java):
             method = java_bytes[method_start_index:method_end_idx].decode('utf-8')
 
             # find start of line
-            method = java[:method_start_index].split("\n")[-1] + method
+            method = java_bytes[:method_start_index].decode('utf-8').split("\n")[-1] + method
 
             # compute indent
             indent_level = len(method) - len(method.lstrip())
@@ -208,17 +205,34 @@ def align_jasm_java_methods(class_name, jasm_methods, java_methods,
                 # then add entire method to java_header
                 align_jasm_methods.append(method)
                 # make a fake method that includes the field initializations
-                static_method = "<static> {\n"
+                static_method = "<|static|> {\n"
                 static_method += "\n".join(static_fields)
                 static_method += "\n}\n"
                 align_java_methods.append(static_method)
     
-    # prepend header as method
-    jasm_header_prompt = jasm_header + "\n.header\n"
+    import_names = []
+    for method in align_jasm_methods:
+        # find anything starting with "java/.."
+        import_names += re.findall(r"java\/\w+\/\w+", method)
+    
+    import_names = list(set(import_names))
+    # remove java/ prefix
+    import_names = [name[5:] for name in import_names]
+    import_names.sort()
+    import_name_str = "<|import|>"  + ",".join(import_names)
+
+    # add header to all jasm methods
+    align_jasm_methods = [jasm_header + "\n" + import_name_str + "\n" + method for method in align_jasm_methods]
+
+    jasm_header_prompt = jasm_header + "\n" + import_name_str + "<|header|>\n"
     align_jasm_methods.insert(0, jasm_header_prompt)
     align_java_methods.insert(0, java_header)
 
+    align_jasm_methods = [method.strip() for method in align_jasm_methods]
+    align_java_methods = [method.strip() for method in align_java_methods]
+
     return align_jasm_methods, align_java_methods
+
 
 def merge_java_methods(java_methods):
     """
@@ -240,7 +254,29 @@ def merge_java_methods(java_methods):
     merged_java += "}\n"
 
     return merged_java
+
     
+def get_jasm_methods(d):
+    jasm = d["jasm_code"]
+    java = d["java_source"]
+
+    # get jasm header and methods
+    jasm_header = extract_jasm_header(jasm)
+    all_jasm_methods = extract_jasm_methods(jasm)
+    
+    # this part is used to reconstruct the java code
+    class_name = get_class_name(jasm_header)
+    field_names = get_field_names(jasm_header)
+
+    # get java header and methods
+    java_header, static_fields = extract_java_header(java)
+    all_java_methods = extract_java_methods(java)
+    
+    # align jasm and java methods
+    jasm_methods, java_methods = align_jasm_java_methods(class_name, all_jasm_methods, all_java_methods, jasm_header, java_header, static_fields)
+
+    return jasm_methods
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

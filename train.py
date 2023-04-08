@@ -6,8 +6,31 @@ from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from transformers import TrainingArguments, Trainer
 from transformers import TrainerCallback
+from transformers.utils import logging
+
+import logging
+import re
+def set_global_logging_level(level=logging.ERROR, prefices=[""]):
+    """
+    Override logging levels of different modules based on their name as a prefix.
+    It needs to be invoked after the modules have been loaded so that their loggers have been initialized.
+
+    Args:
+        - level: desired level. e.g. logging.INFO. Optional. Default is logging.ERROR
+        - prefices: list of one or more str prefices to match (e.g. ["transformers", "torch"]). Optional.
+          Default is `[""]` to match all active loggers.
+          The match is a case-sensitive `module_name.startswith(prefix)`
+    """
+    prefix_re = re.compile(fr'^(?:{ "|".join(prefices) })')
+    for name in logging.root.manager.loggerDict:
+        if re.match(prefix_re, name):
+            logging.getLogger(name).setLevel(level)
+
+set_global_logging_level(logging.ERROR, ["transformers", "nlp", "torch", "tensorflow", "tensorboard", "wandb"])
+
 
 import prompts
+
 
 
 class LoggingCallback(TrainerCallback):
@@ -41,37 +64,38 @@ if __name__=='__main__':
     args = parser.parse_args()
 
     # load dataset
-    train_path = os.path.join(args.data_dir, "train_methods.json")
-    test_path = os.path.join(args.data_dir, "test_methods.json")
+    train_path = os.path.join(args.data_dir, "train_small.json")
+    test_path = os.path.join(args.data_dir, "test_small.json")
     dataset = load_dataset("json", data_files={"train": train_path, "test": test_path})
     # dataset = dataset.remove_columns(["class_name", "java_test", "java_scaffold"])
 
     # load model
     model = AutoModelForCausalLM.from_pretrained(args.model_name)
-    model.use_cache = False
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name)
+
+    # add special tokens
+    tokenizer.add_special_tokens({"additional_special_tokens": ["<|java|>", "<|jasm|>"]})
     tokenizer.pad_token = tokenizer.eos_token
+    model.resize_token_embeddings(len(tokenizer))
 
-
-    def tokenize_function(examples):
-        texts = []
-        for i in range(len(examples["java_source"])):
-            text = prompts.get_train_prompt(
-                args.target,
-                examples["java_source"][i],
-                examples["jasm_code"][i],
-            )
-            texts.append(text)
+    def tokenize_function(example):
+        text = prompts.get_train_prompt(
+            args.target,
+            example["src"],
+            example["tgt"],
+        )
+        print(text)
+        assert False
          
-        output = tokenizer(texts, return_tensors="np", padding=True, truncation=True)
+        output = tokenizer(text, return_tensors="np", truncation=True)
+        print(output["input_ids"].shape)
         output["labels"] = output.input_ids.copy()
 
         return output
 
 
-    tokenized_datasets = dataset.map(tokenize_function, batched=True,
-                                     remove_columns=["java_source", "jasm_code"])
-
+    tokenized_datasets = dataset.map(tokenize_function, batched=False)
+                                     
     training_args = TrainingArguments(
         output_dir=args.output_dir,
         optim="adafactor",
@@ -81,7 +105,7 @@ if __name__=='__main__':
         per_device_eval_batch_size=args.batch_size_per_device,
         num_train_epochs=args.epochs,
         save_strategy="steps",
-        save_steps=10000,
+        save_steps=500,
         save_total_limit=2,
         gradient_accumulation_steps=1,
         gradient_checkpointing=True,
@@ -105,7 +129,6 @@ if __name__=='__main__':
             )
         ],
     )
-
 
     train_results = trainer.train()
 
