@@ -95,28 +95,30 @@ def compile_str(class_name, java_str):
     '''
     Compiles a java file (string) and returns the class name.
     '''
-    # if has_unresolved_imports(java_str):
-    #     return None
-
     with tempfile.TemporaryDirectory() as temp_dir:
         java_file_path = os.path.join(temp_dir, class_name + ".java")
         with open(java_file_path, "w") as f:
             f.write(java_str)
         
-        exit_code = os.system(f"{JAVAC_8} -cp . {java_file_path} > /dev/null 2>&1")
+        # write output of compilation to a file in the temp directory
+        output_file_path = os.path.join(temp_dir, "output.txt")
+        
+        exit_code = os.system(f"{JAVAC_8} -cp . {java_file_path} > {output_file_path} 2>&1")
 
         if exit_code != 0:
-            return None
+            # read contents of output file
+            with open(output_file_path, "r") as f:
+                output_str = f.read()
+
+            return {"success": False, "error": output_str}
 
         class_file_path = os.path.join(temp_dir, class_name + ".class")
-        if not os.path.exists(class_file_path):
-            return None
 
         # read contents of class file to a string
         with open(class_file_path, "rb") as f:
             class_str = f.read()
 
-        return class_str
+        return {"success": True, "class_file": class_str}
 
 def get_java_compile_error(class_name, java_str):
     '''
