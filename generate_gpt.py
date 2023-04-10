@@ -21,108 +21,168 @@ def get_num_tokens(s, engine="gpt-3.5-turbo"):
     
 
 def gen_init_header(jasm_code):
-    user_message = f"""
-Please generate just the java header (class name, imports, field declarations/initializations, etc...)
-for the following Java assembly representation. DO NOT GENERATE ANY METHODS.
-You must implement all constructors - denoted by "method public <init> : ...". DO NOT IMPLEMENT ANY METHODS.
-All necessary imports should be derived from the **REQUIRED IMPORTS** section below the Java Assembly.
-You should not use any java assembly instructions in your reply (e.g., ldc, invokevirtual, aload, etc.)
-REPLY WITH ONLY JAVA CODE. Again, do not generate any methods! Do not write any text outside the codeblock.
-Your code block response should be formatted as ```java\n ...Java Code...\n```\n ***ASSEMBLY CODE***\n{jasm_code}.
-"""
-    user_message = user_message.strip().replace('\n', ' ')
-
     messages = [
-        {"role": "system", "content": "You are a helpful assistant that is an expert at generating valid Java code from an Java assembly representation."},
-        {"role": "user", "content": user_message},
+        {"role": "system", "content": "You are a helpful assistant that is an expert at generating valid Java code from an Java assembly representation. Your goal is to generate a header for the java class."},
     ]
-    completion = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=messages,
-    )
+    user_message = f"""
+***INSTRUCTIONS - GENERATE JAVA HEADER***
+- Please generate just the java header
+  - class name
+  - imports
+  - field declarations/initializations
+- Use best practices for naming
+- Implement ONLY constructors. These are denoted "method public <init> : ..."
+- Derive needed imports from **REQUIRED IMPORTS** section below the Java Assembly.
+  - You must import exactly what is listed in the **REQUIRED IMPORTS** section.
+  - This should be copied and pasted as-is with import.
+- Do not generate any methods or @Override any methods
+- Each "method" block corresponds to a constructor
+  - You are not allowed to generate any methods than those in the java assembly
+- Do not generate any comments
+- Prefer short types (e.g., String instead of java.lang.String)
+- Your reply must be entirely valid Java code. Do not write any text outside the codeblock.
+- Do not use any java assembly instructions (e.g., ldc, invokevirtual, aload, etc.)
+- Do not write any text outside the codeblock.
+- Your code block response should be formatted as ```java\n ...Java Code...\n```\n ***ASSEMBLY CODE***\n{jasm_code}.
+"""
+    # Initial:
+    user_message = user_message.strip()
+    messages.append({"role": "user", "content": user_message})
+    completion = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=messages)
+    response = completion.choices[0].message
+    print("INITIAL:")
+    print(response["content"])
+    init_java_header = response["content"]
+    messages.append(response)
 
-    return completion.choices[0].message["content"].strip()
+    # Critique:
+    user_message = f"""
+- Please critique your prior generation based on how well it adheres to the instructions.
+  - Provide a list of detected issues and steps on how to fix them.
+- If there are no issues detected with the prior generation, then your entire response must be only: OK
+  - Adding any other text will be considered a and will break the evaluation.
+""".strip()
+    messages.append({"role": "user", "content": user_message})
+    completion = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=messages)
+    response = completion.choices[0].message
+    print("CRITIQUE:")
+    print(response["content"])
+    messages.append(response)
+
+    # Fix:
+    user_message = f"""
+- Please fix your prior generation based on the critique.
+- If no fix is needed, your entire response must be only: OK
+  - Adding any other text will be considered a and will break the evaluation.
+""".strip()
+    messages.append({"role": "user", "content": user_message})
+    completion = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=messages)
+    response = completion.choices[0].message
+    print("FIX:")
+    print(response["content"])
+
+    # check if there was a fix
+    content = response["content"].strip()
+    if len(content) < 200 and "ok" in content.lower():
+        print("No fix needed")
+        return init_java_header
+    else:
+        print("Fix needed")
+        return content  
 
 
 def gen_init_method(jasm_code):
-    user_message = f"""
-Please generate JUST the java method for the corresponding java assembly (that includes a
-header and method section). Simply implement the method for the assembly below ***METHOD***.
-DO NOT IMPLEMENT THE CLASS OR ANY FIELDS - JUST THE METHOD. Also, do not indent the method body.
-The first line of the method should be the method signature. Do not indent the method signature.
-Add JAVADOC comments to the method. Use clear, understandable variable names when you must guess the name.
-You should not use any java assembly instructions in your reply (e.g., ldc, invokevirtual, aload, etc.)
-Please reply with Java code only. Do not write any text outside the codeblock.
-Your code block response should be formatted as ```java\n ...Java Code...\n```\n ***ASSEMBLY CODE***\n{jasm_code}.
-"""
-    user_message = user_message.strip().replace('\n', ' ')
-
     messages = [
         {"role": "system", "content": "You are a helpful assistant that is an expert at generating valid Java code from an Java assembly representation."},
-        {"role": "user", "content": user_message},
     ]
-    completion = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=messages,
-    )
-
-    return completion.choices[0].message["content"].strip()
-
-
-def gen_critique_method(jasm_code, prev_generated_code, header_code, check_compile=True):
-    pred_java = combine_java_class(header_code, [prev_generated_code])
-    class_name = java_utils.get_class_name(pred_java)
-    compile_result = java_utils.compile_str(class_name, pred_java)
-    compile_error = '' if compile_result["success"] else compile_result["error"]
-
     user_message = f"""
-Please find any issues with the following java code that was generated to match the
-corresponding java assembly.
-
-Please generate JUST the java method for the corresponding java assembly (that includes a
-header and method section). Simply implement the method for the assembly below ***METHOD***.
-DO NOT IMPLEMENT THE CLASS OR ANY FIELDS - JUST THE METHOD. Also, do not indent the method body.
-The first line of the method should be the method signature. Do not indent the method signature.
-Add JAVADOC comments to the method. Use clear, understandable variable names when you must guess the name.
-You should not use any java assembly instructions in your reply (e.g., ldc, invokevirtual, aload, etc.)
-Please reply with Java code only. Do not write any text outside the codeblock.
-Your code block response should be formatted as ```java\n ...Java Code...\n```\n
-Previous Generated Code:
-{prev_generated_code}
-
-Java Assembly:
-{jasm_code}
-
-Compile Error (if any):
-{compile_error}
+***INSTRUCTIONS - GENERATE JAVA HEADER***
+- Please generate just the java method for the corresponding java assembly
+  - Only generate code for the method for the assembly below ***METHOD***.
+- Do not generate the entire class
+- Do not import any packages
+- Do not create any fields
+- Do not indent the method body
+- The first line of the method should be the method signature
+  - Do not indent the method signature
+- Add JAVADOC comments to the method
+  - Use clear, understandable variable names when you must guess the name
+- You should not use any java assembly instructions in your reply (e.g., ldc, invokevirtual, aload, etc.)
+- Do not use any java assembly instructions (e.g., ldc, invokevirtual, aload, etc.)
+- Do not write any text outside the codeblock.
+- Your code block response should be formatted as ```java\n ...Java Code...\n```\n ***ASSEMBLY CODE***\n{jasm_code}.
 """
-    user_message = user_message.strip().replace('\n', ' ')
-    messages = [
-        {"role": "system", "content": "You are a helpful assistant that is an expert at generating valid Java code from an Java assembly representation."},
-        {"role": "user", "content": user_message},
-    ]
-    completion = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=messages,
-    )
+    user_message = user_message.strip()
 
-    return completion.choices[0].message["content"].strip()
+    # Initial:
+    messages.append({"role": "user", "content": user_message})
+    completion = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=messages)
+    response = completion.choices[0].message
+    print("INITIAL:")
+    print(response["content"])
+    init_java_method = response["content"].strip()
+    messages.append(response)
+
+    # Critique:
+    user_message = f"""
+- Please critique your prior generation based on how well it adheres to the instructions.
+  - Provide a list of detected issues and steps on how to fix them.
+- If there are no issues detected with the prior generation, then your entire response must be only: OK
+  - Adding any other text will be considered a and will break the evaluation.
+""".strip()
+    messages.append({"role": "user", "content": user_message})
+    completion = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=messages)
+    response = completion.choices[0].message
+    print("CRITIQUE:")
+    print(response["content"])
+    messages.append(response)
+
+    # Fix:
+    user_message = f"""
+- Please fix your prior generation based on the critique.
+- If no fix is needed, your entire response must be only: OK
+  - Adding any other text will be considered a and will break the evaluation.
+""".strip()
+    messages.append({"role": "user", "content": user_message})
+    completion = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=messages)
+    response = completion.choices[0].message
+    print("FIX:")
+    print(response["content"])
+
+    # check if there was a fix
+    content = response["content"].strip()
+    if len(content) < 200 and "ok" in content.lower():
+        print("No fix needed")
+        return init_java_method
+    else:
+        print("Fix needed")
+        return content  
 
 
-def extract_class_types(assembly: str) -> List[str]:
-    # Match class types in the form Ljava/awt/Color;
-    pattern = re.compile(r'L([\w/]+);')
-    
-    class_types = set()
-    for line in assembly.split('\n'):
-        for match in pattern.finditer(line):
-            class_type = match.group(1).replace('/', '.')
+def extract_class_types(assembly_code: str) -> List[str]:
+    lines = assembly_code.split('\n')
+    java_classes = set()
+
+    for line in lines:
+        tokens = line.split()
+        for token in tokens:
+            if "java/" in token:
+                # remove before java/ (but keep java/)
+                token = token[token.index("java/"):]
+                # remove ; and after if present
+                if ';' in token:
+                    token = token[:token.index(';')]
+                
+                java_classes.add(token)
             
-            # Check if the class is not part of the java.lang package
-            if not class_type.startswith("java.lang."):
-                class_types.add(class_type)
+    # filter out "java/lang/*" classes
+    java_classes = [c for c in java_classes if not c.startswith("java/lang/")]
 
-    return list(class_types)
+    # sort alphabetically
+    java_classes.sort()
+
+    return list(java_classes)
+
 
 
 def find_used_labels(assembly_code):
@@ -199,14 +259,21 @@ def remove_linenumber_table(java_assembly_code):
 def extract_assembly_header(java_assembly_code: str) -> str:
     def is_header_line(line):
         return not line.startswith('method') and not line.startswith('end method') \
-               and not line.startswith('code') and not line.startswith('end code') \
-               or ('<clinit>' in line) or ('<init>' in line)
+               and not line.startswith('code') and not line.startswith('end code')
 
     header_lines = []
     in_method = False
+    in_init_or_clinit = False
 
     for line in java_assembly_code.split('\n'):
-        if is_header_line(line) and not in_method:
+        if not in_init_or_clinit and not in_method:
+            in_init_or_clinit = ('<clinit>' in line) or ('<init>' in line)
+
+        if in_init_or_clinit: # we want to add lines and set to false on end method
+            header_lines.append(line)
+            if line.startswith('end method'):
+                in_init_or_clinit = False
+        elif is_header_line(line) and not in_method:
             header_lines.append(line)
         else:
             if line.startswith('method'):
@@ -214,16 +281,18 @@ def extract_assembly_header(java_assembly_code: str) -> str:
             elif line.startswith('end method'):
                 in_method = False
 
-    # trim off last two lines (related to name of class)
-    header_lines = header_lines[:-2]
-
     class_types = extract_class_types(java_assembly_code)
 
     # add method signatures
     header_lines = '\n'.join(header_lines).strip()
+
+    # Any newlines that are more than 2 in a row are replaced with 2 newlines
+    header_lines = re.sub(r'\n{3,}', '\n\n', header_lines)
+
+
     if len(class_types) > 0:
         header_lines += '\n\n**REQUIRED IMPORTS**'
-        header_lines += '\n' + '\n'.join([f'{class_type}\n' for class_type in class_types])
+        header_lines += '\n' + '\n'.join([f'{class_type}' for class_type in class_types])
     else:
         header_lines += '\n\n**REQUIRED IMPORTS**'
         header_lines += '\nDO NOT IMPORT ANYTHING!\n'
@@ -233,6 +302,7 @@ def extract_assembly_header(java_assembly_code: str) -> str:
 
 def split_java_assembly_code(java_assembly_code: str) -> List[str]:
     header = extract_assembly_header(java_assembly_code)
+    invalid_words = ["<init>", "<clinit>", " bridge ", " synthetic "]
     method_lines = []
     in_method = False
     chunks = []
@@ -241,7 +311,7 @@ def split_java_assembly_code(java_assembly_code: str) -> List[str]:
         return "***HEADER***\n" + header + '\n***METHOD***\n' + '\n'.join(method_lines)
 
     for line in java_assembly_code.split('\n'):
-        if line.startswith('method') and not ('<init>' in line or '<clinit>' in line):
+        if line.startswith('method') and not any(word in line for word in invalid_words):
             in_method = True
             method_lines.append(line)
         elif line.startswith('end method') and in_method:
@@ -319,22 +389,21 @@ if __name__ == '__main__':
 
     num_compiled, num_correct, num_total = 0, 0, 0
     for i, d in enumerate(data):
-        if i < 4: continue
-        if i == 100:
+        if i < 0: continue
+        if i == 20:
             break
         num_total += 1
 
         jasm = d["jasm_code"]
         jasm = remove_linenumber_table(jasm)
         jasm = strip_unnecessary_info(jasm)
-        print(jasm)
 
         num_tokens = get_num_tokens(jasm, engine="gpt-3.5-turbo")
         header_jasm = extract_assembly_header(jasm)
         header_java = gen_init_header(header_jasm)
         # print(header_jasm)
         # print(header_java)
-        assert False
+        # assert False
 
         methods_jasm = split_java_assembly_code(jasm)
         methods_java = []
@@ -346,6 +415,7 @@ if __name__ == '__main__':
             # methods_java.append(improved_method_java)
         
         pred_java = combine_java_class(header_java, methods_java)
+        print(pred_java)
 
         class_name = java_utils.get_class_name(pred_java)
         compile_result = java_utils.compile_str(class_name, pred_java)
@@ -354,7 +424,7 @@ if __name__ == '__main__':
         if compile_result["success"] == False:
             print("Failed to compile " + class_name)
             print(compile_result["error"])
-            assert False
+            continue
     
         num_compiled += 1
 
