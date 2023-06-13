@@ -390,7 +390,7 @@ if __name__ == '__main__':
     num_compiled, num_correct, num_total = 0, 0, 0
     for i, d in enumerate(data):
         if i < 0: continue
-        if i == 20:
+        if i == 5:
             break
         num_total += 1
 
@@ -401,9 +401,9 @@ if __name__ == '__main__':
         num_tokens = get_num_tokens(jasm, engine="gpt-3.5-turbo")
         header_jasm = extract_assembly_header(jasm)
         header_java = gen_init_header(header_jasm)
-        # print(header_jasm)
-        # print(header_java)
-        # assert False
+        print(header_jasm)
+        print(header_java)
+        assert False
 
         methods_jasm = split_java_assembly_code(jasm)
         methods_java = []
