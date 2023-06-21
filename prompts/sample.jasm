@@ -1,0 +1,319 @@
+version 52 0
+class public super TimeStat
+super java/lang/Object
+field private starts Ljava/util/Hashtable
+field private times Ljava/util/Hashtable
+
+method public <init> : ()V
+code stack 3 locals 1
+aload_0
+invokespecial Method java/lang/Object <init> ()V
+aload_0
+new java/util/Hashtable
+dup
+invokespecial Method java/util/Hashtable <init> ()V
+putfield Field TimeStat starts Ljava/util/Hashtable
+aload_0
+new java/util/Hashtable
+dup
+invokespecial Method java/util/Hashtable <init> ()V
+putfield Field TimeStat times Ljava/util/Hashtable
+aload_0
+invokevirtual Method TimeStat reset ()V
+return
+
+end code
+end method
+
+method public reset : ()V
+code stack 3 locals 1
+aload_0
+new java/util/Hashtable
+dup
+invokespecial Method java/util/Hashtable <init> ()V
+putfield Field TimeStat starts Ljava/util/Hashtable
+aload_0
+new java/util/Hashtable
+dup
+invokespecial Method java/util/Hashtable <init> ()V
+putfield Field TimeStat times Ljava/util/Hashtable
+return
+
+end code
+end method
+
+method public markStartTime : (Ljava/lang/String;)V
+code stack 6 locals 2
+aload_0
+getfield Field TimeStat starts Ljava/util/Hashtable
+aload_1
+new java/sql/Timestamp
+dup
+new java/util/Date
+dup
+invokespecial Method java/util/Date <init> ()V
+invokevirtual Method java/util/Date getTime ()J
+invokespecial Method java/sql/Timestamp <init> (J)V
+invokevirtual Method java/util/Hashtable put (Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object
+pop
+return
+
+end code
+end method
+
+method public markEndTime : (Ljava/lang/String;)V
+code stack 5 locals 11
+new java/sql/Timestamp
+dup
+new java/util/Date
+dup
+invokespecial Method java/util/Date <init> ()V
+invokevirtual Method java/util/Date getTime ()J
+invokespecial Method java/sql/Timestamp <init> (J)V
+astore_2
+aload_0
+getfield Field TimeStat starts Ljava/util/Hashtable
+aload_1
+invokevirtual Method java/util/Hashtable get (Ljava/lang/Object;)Ljava/lang/Object
+checkcast java/sql/Timestamp
+astore_3
+aload_3
+ifnull L115
+aload_0
+getfield Field TimeStat starts Ljava/util/Hashtable
+aload_1
+invokevirtual Method java/util/Hashtable remove (Ljava/lang/Object;)Ljava/lang/Object
+pop
+aload_2
+invokevirtual Method java/sql/Timestamp getTime ()J
+lstore 4
+aload_3
+invokevirtual Method java/sql/Timestamp getTime ()J
+lstore 6
+lload 4
+lload 6
+lsub
+lstore 8
+aload_0
+getfield Field TimeStat times Ljava/util/Hashtable
+aload_1
+invokevirtual Method java/util/Hashtable get (Ljava/lang/Object;)Ljava/lang/Object
+checkcast java/util/ArrayList
+astore 10
+aload 10
+ifnonnull L100
+new java/util/ArrayList
+dup
+invokespecial Method java/util/ArrayList <init> ()V
+astore 10
+aload_0
+getfield Field TimeStat times Ljava/util/Hashtable
+aload_1
+aload 10
+invokevirtual Method java/util/Hashtable put (Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object
+pop
+
+stack full
+locals Object TimeStat Object java/lang/String Object java/sql/Timestamp Object java/sql/Timestamp Long Long Long Object java/util/ArrayList
+stack
+end stack
+L100:   aload 10
+new java/lang/Long
+dup
+lload 8
+invokespecial Method java/lang/Long <init> (J)V
+invokevirtual Method java/util/ArrayList add (Ljava/lang/Object;)Z
+pop
+
+stack full
+locals Object TimeStat Object java/lang/String Object java/sql/Timestamp Object java/sql/Timestamp
+stack
+end stack
+L115:   return
+
+end code
+end method
+
+method public getAverageSummary : ()Ljava/lang/String
+code stack 4 locals 6
+new java/lang/StringBuffer
+dup
+ldc 'Average Summary:\n\n'
+invokespecial Method java/lang/StringBuffer <init> (Ljava/lang/String;)V
+astore_1
+aload_0
+getfield Field TimeStat times Ljava/util/Hashtable
+invokevirtual Method java/util/Hashtable keys ()Ljava/util/Enumeration
+astore_2
+
+stack append Object java/lang/StringBuffer Object java/util/Enumeration
+L18:    aload_2
+invokeinterface InterfaceMethod java/util/Enumeration hasMoreElements ()Z 1
+ifeq L99
+aload_2
+invokeinterface InterfaceMethod java/util/Enumeration nextElement ()Ljava/lang/Object; 1
+checkcast java/lang/String
+astore_3
+aload_0
+aload_3
+invokevirtual Method TimeStat getAverageMilliseconds (Ljava/lang/String;)D
+dstore 4
+aload_1
+new java/lang/StringBuilder
+dup
+invokespecial Method java/lang/StringBuilder <init> ()V
+ldc '     '
+invokevirtual Method java/lang/StringBuilder append (Ljava/lang/String;)Ljava/lang/StringBuilder
+aload_3
+invokevirtual Method java/lang/StringBuilder append (Ljava/lang/String;)Ljava/lang/StringBuilder
+ldc ' averaged '
+invokevirtual Method java/lang/StringBuilder append (Ljava/lang/String;)Ljava/lang/StringBuilder
+dload 4
+invokevirtual Method java/lang/StringBuilder append (D)Ljava/lang/StringBuilder
+ldc ' milliseconds. ('
+invokevirtual Method java/lang/StringBuilder append (Ljava/lang/String;)Ljava/lang/StringBuilder
+aload_0
+aload_3
+invokevirtual Method TimeStat getTotalMeasurements (Ljava/lang/String;)I
+invokevirtual Method java/lang/StringBuilder append (I)Ljava/lang/StringBuilder
+ldc ' total measurements)\n'
+invokevirtual Method java/lang/StringBuilder append (Ljava/lang/String;)Ljava/lang/StringBuilder
+invokevirtual Method java/lang/StringBuilder toString ()Ljava/lang/String
+invokevirtual Method java/lang/StringBuffer append (Ljava/lang/String;)Ljava/lang/StringBuffer
+pop
+goto L18
+
+stack chop 1
+L99:    aload_1
+ldc '\n'
+invokevirtual Method java/lang/StringBuffer append (Ljava/lang/String;)Ljava/lang/StringBuffer
+pop
+aload_1
+invokevirtual Method java/lang/StringBuffer toString ()Ljava/lang/String
+areturn
+
+end code
+end method
+
+method public keys : ()Ljava/util/Enumeration
+code stack 1 locals 1
+aload_0
+getfield Field TimeStat times Ljava/util/Hashtable
+invokevirtual Method java/util/Hashtable keys ()Ljava/util/Enumeration
+areturn
+
+end code
+end method
+
+method public getTotalMeasurements : (Ljava/lang/String;)I
+code stack 2 locals 3
+aload_0
+getfield Field TimeStat times Ljava/util/Hashtable
+aload_1
+invokevirtual Method java/util/Hashtable get (Ljava/lang/Object;)Ljava/lang/Object
+checkcast java/util/ArrayList
+astore_2
+aload_2
+ifnull L21
+aload_2
+invokevirtual Method java/util/ArrayList size ()I
+ireturn
+
+stack append Object java/util/ArrayList
+L21:    iconst_0
+ireturn
+
+end code
+end method
+
+method public getAverageMilliseconds : (Ljava/lang/String;)D
+code stack 4 locals 7
+aload_0
+getfield Field TimeStat times Ljava/util/Hashtable
+aload_1
+invokevirtual Method java/util/Hashtable get (Ljava/lang/Object;)Ljava/lang/Object
+checkcast java/util/ArrayList
+astore_2
+aload_2
+ifnull L66
+lconst_0
+lstore_3
+aload_2
+invokevirtual Method java/util/ArrayList iterator ()Ljava/util/Iterator
+astore 5
+
+stack append Object java/util/ArrayList Long Object java/util/Iterator
+L24:    aload 5
+invokeinterface InterfaceMethod java/util/Iterator hasNext ()Z 1
+ifeq L57
+aload 5
+invokeinterface InterfaceMethod java/util/Iterator next ()Ljava/lang/Object; 1
+checkcast java/lang/Long
+astore 6
+lload_3
+aload 6
+invokevirtual Method java/lang/Long longValue ()J
+ladd
+lstore_3
+goto L24
+
+stack chop 1
+L57:    lload_3
+l2d
+aload_2
+invokevirtual Method java/util/ArrayList size ()I
+i2d
+ddiv
+dreturn
+
+stack chop 1
+L66:    dconst_0
+dreturn
+
+end code
+end method
+
+method public getTotalMilliseconds : (Ljava/lang/String;)D
+code stack 4 locals 7
+aload_0
+getfield Field TimeStat times Ljava/util/Hashtable
+aload_1
+invokevirtual Method java/util/Hashtable get (Ljava/lang/Object;)Ljava/lang/Object
+checkcast java/util/ArrayList
+astore_2
+aload_2
+ifnull L60
+lconst_0
+lstore_3
+aload_2
+invokevirtual Method java/util/ArrayList iterator ()Ljava/util/Iterator
+astore 5
+
+stack append Object java/util/ArrayList Long Object java/util/Iterator
+L24:    aload 5
+invokeinterface InterfaceMethod java/util/Iterator hasNext ()Z 1
+ifeq L57
+aload 5
+invokeinterface InterfaceMethod java/util/Iterator next ()Ljava/lang/Object; 1
+checkcast java/lang/Long
+astore 6
+lload_3
+aload 6
+invokevirtual Method java/lang/Long longValue ()J
+ladd
+lstore_3
+goto L24
+
+stack chop 1
+L57:    lload_3
+l2d
+dreturn
+
+stack chop 1
+L60:    dconst_0
+dreturn
+
+end code
+end method
+sourcefile 'TimeStat.java'
+end class
