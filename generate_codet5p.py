@@ -90,9 +90,16 @@ if __name__ == '__main__':
 
     model, tokenizer = load_peft_model(args.model_path)
 
+    # Set the pad_token_id and decoder_start_token_id
+    if model.config.pad_token_id is None:
+        model.config.pad_token_id = tokenizer.pad_token_id
+    if model.config.decoder_start_token_id is None:
+        model.config.decoder_start_token_id = model.config.pad_token_id
+
+
     if args.use_cuda:
         model = model.cuda()
-        model = model.half()
+        # model = model.half()
 
     num_compiled, num_correct, num_total = 0, 0, 0
     java_output = []

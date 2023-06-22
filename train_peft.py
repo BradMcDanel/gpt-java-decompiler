@@ -1,5 +1,6 @@
 import os
-# os.environ["CUDA_VISIBLE_DEVICES"]="0"
+os.environ["CUDA_VISIBLE_DEVICES"]="0"
+from accelerate import Accelerator
 import torch
 import torch.nn as nn
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, DataCollatorWithPadding, TrainingArguments
@@ -82,19 +83,27 @@ parser.add_argument('--seed', type=int, default=42)
 
 args = parser.parse_args()
 
-model = AutoModelForSeq2SeqLM.from_pretrained(
-    args.checkpoint,
-    # load_in_8bit=True, 
-    device_map='auto',
-    trust_remote_code=True,
-)
+accelerator = Accelerator()
 
+model = AutoModelForSeq2SeqLM.from_pretrained( args.checkpoint, trust_remote_code=True)
 tokenizer = AutoTokenizer.from_pretrained(args.checkpoint)
-data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
 
+# Set the pad_token_id and decoder_start_token_id
+if model.config.pad_token_id is None:
+    model.config.pad_token_id = tokenizer.pad_token_id
+if model.config.decoder_start_token_id is None:
+    model.config.decoder_start_token_id = model.config.pad_token_id
+
+model = model.to(accelerator.device)
+model = accelerator.prepare(model)
+data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+data_collator = accelerator.prepare(data_collator)
 
 train_dataset = load_and_tokenize_data(args.train_dataset, tokenizer, args.source_max_length, args.target_max_length)
 val_dataset = load_and_tokenize_data(args.val_dataset, tokenizer, args.source_max_length, args.target_max_length)
+train_dataset.set_format(type='torch', device=accelerator.device)
+val_dataset.set_format(type='torch', device=accelerator.device)
+
 
 for param in model.parameters():
   param.requires_grad = False  # freeze the model - train adapters later
@@ -105,7 +114,7 @@ for param in model.parameters():
 # model.gradient_checkpointing_enable()  # reduce number of stored activations
 model.enable_input_require_grads()
 # model.decoder.lm_head = CastOutputToFloat(model.decoder.lm_head)
-print(model)
+# print(model)
 
 if  args.checkpoint in ["Salesforce/codet5p-220m", "Salesforce/codet5p-770m"]:
     config = LoraConfig(
@@ -115,12 +124,12 @@ if  args.checkpoint in ["Salesforce/codet5p-220m", "Salesforce/codet5p-770m"]:
         target_modules=["q", "v"],
         lora_dropout=0.01,
     )
-elif args.checkpoint in ["Salesforce/codet5p-3B"]:
+elif args.checkpoint in ["Salesforce/codet5p-2b", "Salesforce/codet5p-6b"]:
     config = LoraConfig(
         task_type="SEQ_2_SEQ_LM",
         r=32,
         lora_alpha=32,
-        target_modules=["q", "v"],
+        target_modules=["qkv_proj", "out_proj"],
         lora_dropout=0.01,
     )
 

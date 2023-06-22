@@ -329,9 +329,6 @@ if __name__ == '__main__':
     num_compiled, num_correct, num_total = 0, 0, 0
     for i, d in enumerate(data):
         result_dict = {}
-        if i < 0: continue
-        if i == 30:
-            break
         num_total += 1
 
         result_dict["class_name"] = d["class_name"]

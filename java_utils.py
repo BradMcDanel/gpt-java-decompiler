@@ -322,7 +322,13 @@ def evosuite_compile_and_run_test(class_name, byte_code_str, test_str, scaffold_
 
         # open test output and get last line
         with open(os.path.join(temp_dir, "output.txt"), "r") as f:
-            output = f.readlines()[-2]
+            total_output = f.readlines()
+            output = total_output[-2]
+            # failure are lines that start with number) such as 1), 2)
+            failures = "FAILED TESTS:"
+            for line in total_output:
+                if line[0].isdigit():
+                    failures += line
 
         # compute pass_rate
         if "OK" in output:
@@ -336,7 +342,7 @@ def evosuite_compile_and_run_test(class_name, byte_code_str, test_str, scaffold_
         # change back to home directory
         os.chdir(home_dir)
 
-        return pass_rate
+        return {"pass_rate": pass_rate, "error": failures}
 
 def procyon_decompiler(class_name, byte_code_str):
     '''
