@@ -7,6 +7,7 @@ import gpt_model
 from collections import deque
 import re
 from concurrent.futures import ProcessPoolExecutor, as_completed
+import os
 
 import java_utils
 
@@ -420,7 +421,19 @@ if __name__ == '__main__':
     with open(args.input_file) as f:
         for line in f:
             data.append(json.loads(line))
+    
+    if os.path.exists(args.output_file):
+        # load existing results
+        complete_data = []
+        with open(args.output_file) as f:
+            for line in f:
+                complete_data.append(json.loads(line))
         
+        # filter out completed data
+        num_data = len(data)
+        data = [d for d in data if d["class_idx"] not in [cd["class_idx"] for cd in complete_data]]
+        print(f"Loaded {len(complete_data)} completed data. {len(data)} remaining data.")
+
     num_compiled, num_correct, num_total = 0, 0, 0
     with ProcessPoolExecutor(max_workers=args.num_workers) as executor:
         futures = {executor.submit(process_data, d, args): d for d in data}
