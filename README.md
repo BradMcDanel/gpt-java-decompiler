@@ -6,7 +6,7 @@ This repository contains the implementation and datasets from our GEM 2023 paper
 
 We propose a novel approach using instruction-tuned large language models (LLMs), such as ChatGPT, to automatically decompile entire Java classes. Our method relies only on a textual representation of the Java bytecode and corresponding unit tests generated from the bytecode. While no additional domain knowledge or fine-tuning is performed, we provide a single training example of this decompilation process in the model's prompt. To overcome both compilation errors and test failures, we use an iterative prompting approach. We find that ChatGPT-4 is able to generate more human-readable output than existing software-based decompilers while achieving slightly lower pass rates on unit tests.
 
-![Methodology Overview](methodology.png)
+![Methodology Overview](figures/methodology.png)
 
 
 ## Requirements
